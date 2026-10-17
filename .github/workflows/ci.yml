@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/payantra
+      - run: npm run typecheck
+      - run: npm test
+      # Applies all migrations to an in-memory Postgres and asserts the integrity constraints.
+      - run: npm run db:verify
+      # Fails when schema.prisma and the migration history disagree (a forgotten `prisma migrate dev`).
+      - run: npm run db:drift
+
+  e2e:
+    # Real API + real storefront build + headless Chrome, with stand-ins for Supabase and Razorpay.
+    needs: [server, client]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: server
+      - run: npx prisma generate
+        working-directory: server
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/payantra
+      - run: npm ci
+        working-directory: client
+      - run: npm ci || npm install
+        working-directory: e2e
+      # google-chrome is preinstalled on ubuntu-latest; BROWSER_PATH overrides the lookup.
+      - run: npm run e2e
+        working-directory: e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-artifacts
+          path: e2e/artifacts
+
+  client:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder

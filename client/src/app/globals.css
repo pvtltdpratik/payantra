@@ -1,0 +1,137 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Payantra design tokens — shadcn semantic names carrying the brand palette:
+ * deep maroon, ivory, champagne gold, sand and muted earth tones.
+ * `accent` is the neutral hover surface shadcn expects; the brand gold is `gold`.
+ */
+:root {
+  --background: #fbf7f0; /* ivory */
+  --foreground: #2a1a17; /* warm near-black */
+  --card: #ffffff;
+  --card-foreground: #2a1a17;
+  --popover: #ffffff;
+  --popover-foreground: #2a1a17;
+  --primary: #5c1a2b; /* deep maroon */
+  --primary-foreground: #fbf7f0;
+  --secondary: #f1e9db;
+  --secondary-foreground: #2a1a17;
+  --muted: #f1e9db; /* sand */
+  --muted-foreground: #6f5f55;
+  --accent: #f1e9db;
+  --accent-foreground: #2a1a17;
+  --destructive: #a3262a;
+  --border: #e3d8c7;
+  --input: #d9ccb6;
+  --ring: #c8a45d;
+
+  --gold: #c8a45d; /* champagne gold */
+  --gold-foreground: #2a1a17;
+  --success: #3f6b4a;
+  --warning: #9a6a12;
+
+  --chart-1: #5c1a2b;
+  --chart-2: #c8a45d;
+  --chart-3: #1f5c4a;
+  --chart-4: #2b3a67;
+  --chart-5: #c79a2b;
+
+  --sidebar: #f6efe2;
+  --sidebar-foreground: #2a1a17;
+  --sidebar-primary: #5c1a2b;
+  --sidebar-primary-foreground: #fbf7f0;
+  --sidebar-accent: #ebe0cc;
+  --sidebar-accent-foreground: #2a1a17;
+  --sidebar-border: #e3d8c7;
+  --sidebar-ring: #c8a45d;
+
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-cormorant), ui-serif, Georgia, serif;
+  --font-heading: var(--font-cormorant), ui-serif, Georgia, serif;
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    scroll-behavior: auto; /* Lenis owns smooth scrolling; avoid double easing */
+    @apply font-sans;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-serif);
+    letter-spacing: -0.01em;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Lenis recommended base styles */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-stopped { overflow: hidden; }
