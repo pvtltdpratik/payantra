@@ -236,7 +236,7 @@ export const couponUpdate = z.object(couponShape).partial().strict();
 
 export const couponListQuery = paginationQuery.extend({ q: z.string().trim().max(40).optional() });
 
-export const settingKeyParam = z.object({ key: z.enum(['shipping', 'payments', 'returns']) });
+export const settingKeyParam = z.object({ key: z.enum(['shipping', 'payments', 'returns', 'delivery']) });
 
 const FULFILMENT = [
   'PLACED',

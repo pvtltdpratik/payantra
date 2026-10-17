@@ -14,6 +14,11 @@ import { checkoutRouter } from './modules/checkout/checkout.routes.js';
 import { notificationsRouter } from './modules/notifications/notifications.routes.js';
 import { ordersRouter } from './modules/orders/orders.routes.js';
 import { paymentsRouter, razorpayWebhookRouter } from './modules/payments/payments.routes.js';
+import { deliveryRouter } from './modules/delivery/delivery.routes.js';
+import { marketingPublicRouter } from './modules/marketing/marketing.routes.js';
+import { recentlyViewedRouter } from './modules/recently-viewed/recently-viewed.routes.js';
+import { reviewsRouter } from './modules/reviews/reviews.routes.js';
+import { supportRouter } from './modules/support/support.routes.js';
 import { couponsRouter } from './modules/coupons/coupons.routes.js';
 import { wishlistRouter } from './modules/wishlist/wishlist.routes.js';
 import {
@@ -38,6 +43,9 @@ export function createApp() {
       origin: corsOrigins,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+      // A browser hides every response header except a short safe list from a page on another origin. The CSV
+      // exports' file names travel in Content-Disposition, so it must be listed or downloads lose their names.
+      exposedHeaders: ['Content-Disposition'],
     }),
   );
   app.use(compression());
@@ -64,6 +72,11 @@ export function createApp() {
   v1.use('/checkout', checkoutRouter);
   v1.use('/payments', paymentsRouter);
   v1.use('/orders', ordersRouter);
+  v1.use('/delivery', deliveryRouter);
+  v1.use('/support', supportRouter);
+  v1.use('/reviews', reviewsRouter);
+  v1.use('/recently-viewed', recentlyViewedRouter);
+  v1.use(marketingPublicRouter); // /banners, /newsletter/subscribe
   v1.use('/notifications', notificationsRouter);
   v1.use('/admin', adminRouter);
   app.use('/api/v1', v1);

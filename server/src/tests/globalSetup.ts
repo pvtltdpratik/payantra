@@ -24,6 +24,14 @@ export default async function setup() {
 
   return async () => {
     await razorpay.stop();
+    // vitest has already chosen this run's exit code (1 when anything failed, otherwise unset).
+    const chosen = process.exitCode;
     await db.stop();
+    // PGlite's WASM runtime writes stray values into process.exitCode (we have seen 0, 99 and 100), some of them AFTER
+    // teardown. That made a failing run exit 0 and a passing one exit non-zero, so CI could not trust the result.
+    // An 'exit' listener runs last: pin the code vitest chose, and never mask a real failure (1) set later.
+    process.once('exit', () => {
+      process.exitCode = process.exitCode === 1 || chosen === 1 ? 1 : 0;
+    });
   };
 }

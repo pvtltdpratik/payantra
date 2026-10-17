@@ -136,8 +136,17 @@ export async function goto(page, stack, path) {
 export async function login(page, stack, who) {
   const a = stack.accounts[who];
   await goto(page, stack, '/auth/login');
-  await page.type('#email', a.email);
-  await page.type('#password', a.password);
+  // On a cold server the page can load before React has attached to the form; keystrokes typed in that gap are wiped
+  // when it hydrates. Wait for hydration, then check the fields really hold what was typed.
+  await hydrated(page, '#email');
+  await hydrated(page, '#password');
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await fill(page, '#email', a.email);
+    await fill(page, '#password', a.password);
+    const held = await page.evaluate(() => [document.querySelector('#email').value, document.querySelector('#password').value]);
+    if (held[0] === a.email && held[1] === a.password) break;
+    await sleep(500);
+  }
   try {
     await Promise.all([page.waitForFunction(() => location.pathname !== '/auth/login', { timeout: 20_000 }), page.click('button[type=submit]')]);
   } catch (err) {
@@ -206,4 +215,16 @@ export async function fillLabel(page, pattern, value, { scope = 'body' } = {}) {
   await page.keyboard.up('Control');
   await page.keyboard.press('Backspace');
   if (value) await el.type(value);
+}
+
+/** Waits until React has attached to an element (so typing into it is not discarded by a later hydration). */
+export async function hydrated(page, selector, timeout = 20_000) {
+  await page.waitForFunction(
+    (sel) => {
+      const el = document.querySelector(sel);
+      return !!el && Object.keys(el).some((k) => k.startsWith('__reactFiber') || k.startsWith('__reactProps'));
+    },
+    { timeout },
+    selector,
+  );
 }

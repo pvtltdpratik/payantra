@@ -1,4 +1,4 @@
-# Payantra API reference (Phases 2–3)
+# Payantra API reference (Phases 2–4)
 
 Base URL: `/api/v1`. All responses use one envelope:
 
@@ -118,7 +118,63 @@ Fulfilment status: `PLACED → PAYMENT_CONFIRMED → PROCESSING → PACKED → S
 `CANCELLED` and `RETURN_REQUESTED → RETURNED`. A COD order stays `PLACED` until an admin confirms it. Payment status:
 `PENDING`, `AUTHORIZED`, `CAPTURED`, `FAILED`, `PARTIALLY_REFUNDED`, `REFUNDED`.
 
+### Delivery verification on an order
+
+`GET /orders/:id` includes `delivery` (or `null` before a partner is assigned): `{status, partnerName, partnerPhone, failureReason, code, codeLocked, codeExpired}`.
+`partnerName` is the partner's **first name**; `partnerPhone` and `code` are present **only while the order is out for delivery**, and only for the order's owner.
+`code` is six digits the customer reads out at the door. It is derived on demand (see [DELIVERY.md](DELIVERY.md)), never stored.
+
+### Support, reviews, recently viewed, banners, newsletter
+
+| Method | Path | Notes |
+|---|---|---|
+| GET / POST | `/support` | Own requests with replies / `{subject, message, orderId?}`. At most 5 open at once (`422`); someone else's order id is `404` |
+| GET | `/reviews/product/:slug` | **Public.** `{summary:{average,count,histogram}, items}` of visible reviews; `sort` = `newest`, `highest` or `lowest`. Reviewer shown as "Asha R."; no e-mail or id |
+| GET | `/reviews/mine` | `{toReview, reviewed}`: delivered items not yet reviewed, and your reviews (including any an admin hid) |
+| POST | `/reviews` | `{productId, orderId, rating 1–5, title?, body?}`. Needs a **delivered** order of yours that contained the product (`403` otherwise); one per product per order (`409`) |
+| PATCH / DELETE | `/reviews/:id` | Author only (anyone else, admins included, gets `404`). The product's stored average and count are recomputed under a per-product lock |
+| GET / POST / DELETE | `/recently-viewed[/:productId]` | The signed-in shopper's trail: newest first, newest 20 kept, archived products hidden |
+| GET | `/banners` | **Public.** Live banners only (active and inside their date window); optional `placement` = `HOME_HERO`, `HOME_STRIP` or `CATEGORY` |
+| POST | `/newsletter/subscribe` | **Public.** `{email}`. Idempotent and identical whether or not the address was already subscribed |
+
+## Delivery partners (`/delivery`)
+
+Two audiences. Any signed-in user may read their application and apply; everything else needs the `DELIVERY_PARTNER` role **and** an `APPROVED` partner record
+(re-read from the database on every request), and every query is scoped to the partner's own assignments. Another partner's assignment is `404`.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/delivery/me` | Profile, application status and what applying requires |
+| POST | `/delivery/apply` | `{fullName, phone, serviceCity, vehicleType?, vehicleNumber?, idDocumentType?, idDocumentRef?, applicationNote?}`. The vehicle and ID reference are required while the admin settings say so. Never changes the applicant's role |
+| PATCH | `/delivery/me` | Vehicle, city, phone (approved partners) |
+| PUT | `/delivery/availability` | `{isOnline}` |
+| GET | `/delivery/assignments` | `view` = `active` (oldest first) or `history`. Shaped by what the partner may see (below) |
+| GET | `/delivery/assignments/:id` | One assignment, with `nextStatuses` (what the server will accept next) and its history |
+| POST | `/delivery/assignments/:id/status` | `{status, reason?, notes?, code?}`; `status` ∈ `ACCEPTED`, `REJECTED`, `PICKED_UP`, `OUT_FOR_DELIVERY`, `DELIVERED`, `FAILED`, `RETURNED_TO_ORIGIN`. A reason is required to reject, fail or return; `DELIVERED` needs the customer's 6-digit `code` |
+| GET | `/delivery/stats` | Today's assigned / completed / failed, pending, earnings (today, 30 days, all time), 14-day performance |
+
+Errors worth knowing: `409` (that step is not allowed from here), `422 OTP_INVALID` (`details.attemptsLeft`), `423 OTP_LOCKED` (5 wrong codes), `409 OTP_EXPIRED`.
+
+What a partner sees of a job: **before accepting** only the city and PIN code; **while working it** the full address, the customer's name and phone, the items (no prices) and any cash to collect;
+**once finished** only the city again. Never the customer's e-mail.
+
 ## Admin (`ADMIN` role; every route)
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/admin/delivery-partners` | `status`, `q` (name, e-mail, phone, city), paging; waiting applications first. Includes active / delivered / failed counts |
+| GET | `/admin/delivery-partners/assignable` | Approved partners, online first, with their current load |
+| GET | `/admin/delivery-partners/:id` | Application (including the ID reference), stats, earnings and recent assignments |
+| PATCH | `/admin/delivery-partners/:id` | `{action: "approve", "reject", "suspend", "reactivate" or "update", reason?, perDeliveryPayout?}`. Approving is the only way a partner gets the role. Suspending is refused while they hold parcels in transit |
+| POST / DELETE | `/admin/orders/:id/assignment` | `{partnerId}` assign (only a **packed** order, only to an approved **online** partner) / unassign (before pickup, or after a failed attempt) |
+| POST | `/admin/orders/:id/assignment/reissue-code` | New delivery code and a fresh set of 5 attempts, while out for delivery |
+| GET | `/admin/analytics/overview` | `from`, `to` (YYYY-MM-DD, India days, ≤ 366). Totals, previous-period totals, sales by day, order status counts, customers, partners, low stock, pending work, recent transactions |
+| GET | `/admin/reports/:name` | `name` = `sales` (`granularity` = `day`, `week`, `month`), `products`, `inventory` (`lowStockOnly`), `payments`, `delivery`. `format=csv` downloads the same table (see [REPORTS.md](REPORTS.md)) |
+| GET | `/admin/customers[/:id]` | Customers only, with orders, spend, addresses and requests. Read-only |
+| GET / PATCH | `/admin/support[/:id]` | Inbox / `{status?, reply?}`; a reply notifies the customer |
+| GET / POST / PATCH / DELETE | `/admin/banners[/:id]` | Image and link must be a site path (`/shop`) or `https://…`; `javascript:`, `data:` and `//host` are refused |
+| GET / PATCH | `/admin/newsletter[/:id]` | List (`status`, `q`, `format=csv`) / `{subscribed}` |
+| GET / PATCH | `/admin/reviews[/:id]` | Moderation: `{isVisible}` hides or restores a review and re-computes the product's rating |
 
 | Method | Path | Notes |
 |---|---|---|
@@ -145,7 +201,7 @@ Fulfilment status: `PLACED → PAYMENT_CONFIRMED → PROCESSING → PACKED → S
 | GET / PATCH | `/admin/returns[/:id]` | `{action: "approve", "reject" or "complete", adminNote?, refundAmount?, restock?}` |
 | GET / POST / PATCH / DELETE | `/admin/coupons[/:id]` | `DELETE` switches the coupon off instead when orders used it. The code is immutable |
 | GET | `/admin/settings` | `{shipping, payments, returns}` |
-| PUT | `/admin/settings/:key` | `key` = `shipping` (`flatRate`, `freeThreshold`), `payments` (`codEnabled`, `codMaxOrder`, `reservationMinutes`) or `returns` (`returnWindowDays`, `replacementEnabled`). Strict: unknown keys → `400` |
+| PUT | `/admin/settings/:key` | `key` = `shipping` (`flatRate`, `freeThreshold`), `payments` (`codEnabled`, `codMaxOrder`, `reservationMinutes`), `returns` (`returnWindowDays`, `replacementEnabled`) or `delivery` (`defaultPayout`, `requireVehicle`, `requireIdDocument`). Strict: unknown keys → `400` |
 
 ### Status codes
 

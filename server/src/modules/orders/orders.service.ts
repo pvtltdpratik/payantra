@@ -8,6 +8,7 @@ import { inclusiveTax } from '../../lib/money.js';
 import { addItem } from '../cart/cart.service.js';
 import { reconcileOrder, requestRefund } from '../payments/payments.service.js';
 import { getSettings } from '../settings/settings.service.js';
+import { customerDeliveryView } from '../delivery/delivery-view.js';
 import { cancelCommittedOrder, cancelUnpaidOrder, lockOrder, recordStatus } from './order-lifecycle.js';
 
 export const orderViewInclude = {
@@ -15,6 +16,7 @@ export const orderViewInclude = {
   payments: { include: { refunds: { orderBy: { createdAt: 'asc' } } }, orderBy: { createdAt: 'desc' } },
   history: { orderBy: { createdAt: 'asc' } },
   returns: { orderBy: { createdAt: 'desc' } },
+  assignment: { include: { partner: { include: { user: { select: { fullName: true, phone: true } } } } } },
 } satisfies Prisma.OrderInclude;
 
 type OrderWithView = Prisma.OrderGetPayload<{ include: typeof orderViewInclude }>;
@@ -78,6 +80,7 @@ export async function toOrderView(o: OrderWithView) {
       refundedAmount: payment.refundedAmount,
       failureReason: payment.failureReason,
     },
+    delivery: customerDeliveryView(o.assignment),
     refunds: o.payments.flatMap((p) => p.refunds).map((r) => ({ id: r.id, amount: r.amount, status: r.status, reason: r.reason, createdAt: r.createdAt, processedAt: r.processedAt })),
     timeline: o.history.map((h) => ({ status: h.status, note: h.note, at: h.createdAt })),
     returns: o.returns.map((r) => ({ id: r.id, type: r.type, status: r.status, reason: r.reason, adminNote: r.adminNote, refundAmount: r.refundAmount, createdAt: r.createdAt })),
@@ -169,22 +172,34 @@ export async function cancelOrder(orderId: string, opts: { userId?: string; acto
     return captured ? { paymentId: captured.id, amount: captured.amount - captured.refundedAmount } : null;
   });
 
-  if (toRefund && toRefund.amount > 0) {
-    try {
-      await requestRefund({
-        paymentId: toRefund.paymentId,
-        amount: toRefund.amount,
-        reason: `Order cancelled: ${opts.reason}`,
-        source: 'CANCELLATION',
-        actorId: opts.actorId,
-        idempotencyKey: `cancel:${orderId}`,
-      });
-    } catch (err) {
-      // The order IS cancelled. A refund that could not be confirmed stays PENDING and can be retried.
-      logger.error({ err, orderId }, 'Cancellation refund needs attention');
-    }
-  }
+  await refundAfterCancel(orderId, toRefund, opts);
   return toOrderView(await prisma.order.findUniqueOrThrow({ where: { id: orderId }, include: orderViewInclude }));
+}
+
+/**
+ * Sends the money back for an order that has just been cancelled (customer, admin, or a parcel that
+ * returned to origin). It runs AFTER the cancelling transaction commits: a payment-provider outage can
+ * delay a refund but never leave the order half-cancelled.
+ */
+export async function refundAfterCancel(
+  orderId: string,
+  toRefund: { paymentId: string; amount: number } | null,
+  opts: { actorId: string; reason: string },
+): Promise<void> {
+  if (!toRefund || toRefund.amount <= 0) return;
+  try {
+    await requestRefund({
+      paymentId: toRefund.paymentId,
+      amount: toRefund.amount,
+      reason: `Order cancelled: ${opts.reason}`,
+      source: 'CANCELLATION',
+      actorId: opts.actorId,
+      idempotencyKey: `cancel:${orderId}`,
+    });
+  } catch (err) {
+    // The order IS cancelled. A refund that could not be confirmed stays PENDING and can be retried.
+    logger.error({ err, orderId }, 'Cancellation refund needs attention');
+  }
 }
 
 // ───────────────────────── Returns ─────────────────────────

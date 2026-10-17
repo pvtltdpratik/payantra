@@ -5,6 +5,7 @@ import { getCategoryTreeSafe } from "@/services/catalogue";
 import { AccountLink } from "./account-link";
 import { CartBadge } from "./cart-badge";
 import { MobileNav } from "./mobile-nav";
+import { NotificationBell } from "./notification-bell";
 import { SearchBox } from "./search-box";
 
 const NAV = [
@@ -80,6 +81,7 @@ export async function SiteHeader() {
             <Heart aria-hidden className="size-5" />
           </Link>
           <CartBadge />
+          <NotificationBell />
           <Suspense fallback={<span className="inline-block h-10 w-10" />}>
             <AccountLink />
           </Suspense>

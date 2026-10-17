@@ -1,31 +1,40 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { ArrowLeft, Boxes, FolderTree, Package, ReceiptText, RotateCcw, Settings, TicketPercent, Users } from "lucide-react";
+import { ArrowLeft, BarChart3, Boxes, FolderTree, History, LayoutDashboard, LifeBuoy, Mail, Megaphone, MessageSquareText, Package, ReceiptText, RotateCcw, Settings, TicketPercent, Truck, UserRound, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireAdmin } from "@/lib/server-session";
 
 export const metadata: Metadata = { title: { default: "Admin", template: "%s · Payantra Admin" }, robots: { index: false } };
 
 const NAV = [
+  { href: "/admin", label: "Overview", Icon: LayoutDashboard },
   { href: "/admin/orders", label: "Orders", Icon: ReceiptText },
   { href: "/admin/returns", label: "Returns", Icon: RotateCcw },
+  { href: "/admin/delivery-partners", label: "Delivery partners", Icon: Truck },
   { href: "/admin/products", label: "Products", Icon: Package },
   { href: "/admin/inventory", label: "Inventory", Icon: Boxes },
   { href: "/admin/categories", label: "Categories", Icon: FolderTree },
+  { href: "/admin/customers", label: "Customers", Icon: UserRound },
+  { href: "/admin/support", label: "Support", Icon: LifeBuoy },
+  { href: "/admin/reviews", label: "Reviews", Icon: MessageSquareText },
+  { href: "/admin/analytics", label: "Reports", Icon: BarChart3 },
   { href: "/admin/coupons", label: "Coupons", Icon: TicketPercent },
+  { href: "/admin/banners", label: "Banners", Icon: Megaphone },
+  { href: "/admin/newsletter", label: "Newsletter", Icon: Mail },
   { href: "/admin/users", label: "Users & roles", Icon: Users },
+  { href: "/admin/audit", label: "Audit log", Icon: History },
   { href: "/admin/settings", label: "Settings", Icon: Settings },
 ];
 
 /** Only reached by ADMINs: anyone else is redirected before any admin UI is rendered. */
 async function AdminFrame({ children }: { children: React.ReactNode }) {
-  const { me } = await requireAdmin("/admin/products");
+  const { me } = await requireAdmin("/admin");
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <aside className="border-b bg-sidebar md:w-60 md:shrink-0 md:border-b-0 md:border-r">
         <div className="flex items-center justify-between gap-4 px-4 py-4 md:block">
-          <Link href="/admin/products" className="font-serif text-xl font-semibold tracking-[0.28em] text-primary">
+          <Link href="/admin" className="font-serif text-xl font-semibold tracking-[0.28em] text-primary">
             PAYANTRA
           </Link>
           <p className="text-xs uppercase tracking-widest text-muted-foreground md:mt-1">Admin</p>

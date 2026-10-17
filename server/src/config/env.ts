@@ -34,6 +34,11 @@ const schema = z.object({
   RAZORPAY_API_BASE: z.string().url().default('https://api.razorpay.com/v1'),
   /** Seconds between sweeps that release stock held by abandoned online-payment orders. 0 disables. */
   ORDER_EXPIRY_SWEEP_SECONDS: z.coerce.number().int().min(0).max(3600).default(60),
+  /**
+   * Secret behind delivery codes. A code is derived from this and the assignment, so it is never stored.
+   * Required in production (32+ characters); a fixed development value is used elsewhere.
+   */
+  DELIVERY_OTP_SECRET: z.string().min(32).optional(),
   RAZORPAY_KEY_ID: z.string().min(1),
   RAZORPAY_KEY_SECRET: z.string().min(1),
   RAZORPAY_WEBHOOK_SECRET: z.string().min(1),
@@ -47,6 +52,9 @@ function load(): Env {
     const issues = parsed.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
     // Fail fast: a server that boots with missing secrets fails in confusing ways later.
     throw new Error(`Invalid environment configuration:\n${issues}`);
+  }
+  if (parsed.data.NODE_ENV === 'production' && !parsed.data.DELIVERY_OTP_SECRET) {
+    throw new Error('Invalid environment configuration:\n  - DELIVERY_OTP_SECRET: required in production (32+ random characters)');
   }
   return parsed.data;
 }

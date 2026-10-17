@@ -4,7 +4,9 @@ import { Suspense } from "react";
 import { Breadcrumbs } from "@/components/catalogue/breadcrumbs";
 import { ProductGallery } from "@/components/catalogue/product-gallery";
 import { PurchasePanel } from "@/components/catalogue/purchase-panel";
+import { RecordView } from "@/components/catalogue/record-view";
 import { Rating } from "@/components/catalogue/rating";
+import { ProductReviews } from "@/components/reviews/product-reviews";
 import { SizeGuide } from "@/components/catalogue/size-guide";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getProduct } from "@/services/catalogue";
@@ -108,6 +110,9 @@ async function ProductBody({ params }: Pick<PageProps<"/product/[slug]">, "param
           </section>
         </div>
       </div>
+
+      <ProductReviews slug={product.slug} productId={product.id} />
+      <RecordView productId={product.id} />
     </>
   );
 }

@@ -23,6 +23,17 @@ export const settingsSchemas = {
       replacementEnabled: z.boolean(),
     })
     .strict(),
+  /** How delivery partners are onboarded and paid. */
+  delivery: z
+    .object({
+      /** Paid per completed delivery to a newly approved partner (paise). Each partner's own rate can differ. */
+      defaultPayout: paise,
+      /** Applicants must say what vehicle they ride. */
+      requireVehicle: z.boolean(),
+      /** Applicants must give an ID-document type and a verification reference (never the document number itself). */
+      requireIdDocument: z.boolean(),
+    })
+    .strict(),
 } as const;
 
 export type SettingKey = keyof typeof settingsSchemas;
@@ -32,12 +43,14 @@ export interface AppSettings {
   shipping: z.infer<typeof settingsSchemas.shipping>;
   payments: z.infer<typeof settingsSchemas.payments>;
   returns: z.infer<typeof settingsSchemas.returns>;
+  delivery: z.infer<typeof settingsSchemas.delivery>;
 }
 
 export const SETTING_DEFAULTS: AppSettings = {
   shipping: { flatRate: 9_900, freeThreshold: 299_900 }, // ₹99 under ₹2,999
   payments: { codEnabled: false, codMaxOrder: 500_000, reservationMinutes: 15 }, // COD off until an admin enables it
   returns: { returnWindowDays: 7, replacementEnabled: true },
+  delivery: { defaultPayout: 4_000, requireVehicle: true, requireIdDocument: true }, // ₹40 per delivery
 };
 
 type Db = Pick<typeof prisma, 'appSetting'>;

@@ -204,8 +204,11 @@ async function main() {
         status: 'ACTIVE',
         isFeatured: !!p.featured,
         isNewArrival: !!p.isNew,
-        ratingAverage: (3.6 + rand() * 1.3).toFixed(2),
-        ratingCount: randInt(3, 120),
+        // Ratings start at zero and come ONLY from real reviews (verified purchases). A seeded star rating would
+        // show "30 reviews" above an empty list. `soldCount` is demo ordering data for the popularity sort only;
+        // real sales add to it.
+        ratingAverage: 0,
+        ratingCount: 0,
         soldCount: randInt(0, 400),
         collections: { connect: p.collections.map((c) => ({ id: colIds.get(c)! })) },
         images: {

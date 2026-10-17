@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { DeliveryPanel } from "@/components/admin/delivery-panel";
 import { OrderAdminActions } from "@/components/admin/order-admin-actions";
 import { OrderStatusBadge, OrderTimeline, PaymentStatusText } from "@/components/orders/order-status";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,6 +10,7 @@ import { api, ApiError } from "@/lib/api";
 import { requireAdmin } from "@/lib/server-session";
 import { formatINR } from "@/lib/utils";
 import type { AdminOrderView } from "@/types/admin";
+import type { AssignablePartner } from "@/types/delivery";
 
 export const metadata: Metadata = { title: "Order" };
 
@@ -22,6 +24,10 @@ async function Body({ params }: Pick<PageProps<"/admin/orders/[id]">, "params">)
     if (err instanceof ApiError && (err.status === 404 || err.status === 400)) notFound();
     throw err;
   }
+
+  // Only needed while the order can still be handed to someone.
+  const canAssign = o.fulfilmentStatus === "PACKED" || (o.assignment?.status === "FAILED" && o.fulfilmentStatus === "SHIPPED");
+  const partners = canAssign ? (await api<AssignablePartner[]>("/admin/delivery-partners/assignable", { token, cache: "no-store" })).data : [];
 
   return (
     <div className="space-y-8">
@@ -43,6 +49,8 @@ async function Body({ params }: Pick<PageProps<"/admin/orders/[id]">, "params">)
       <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
         <div className="space-y-8">
           <OrderAdminActions order={o} />
+
+          <DeliveryPanel order={o} partners={partners} />
 
           <section aria-labelledby="items-h">
             <h2 id="items-h" className="mb-3 text-2xl font-semibold">

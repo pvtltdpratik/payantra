@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, MapPin, Package, User } from "lucide-react";
+import { Bell, Bike, Heart, LifeBuoy, MapPin, Package, ShieldCheck, Star, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
@@ -10,6 +10,11 @@ const LINKS = [
   { href: "/account/orders", label: "Orders", Icon: Package, exact: false },
   { href: "/account/addresses", label: "Addresses", Icon: MapPin, exact: false },
   { href: "/wishlist", label: "Wishlist", Icon: Heart, exact: false },
+  { href: "/account/reviews", label: "Reviews", Icon: Star, exact: false },
+  { href: "/account/notifications", label: "Notifications", Icon: Bell, exact: false },
+  { href: "/account/support", label: "Help & support", Icon: LifeBuoy, exact: false },
+  { href: "/account/security", label: "Security", Icon: ShieldCheck, exact: false },
+  { href: "/delivery", label: "Delivery partner", Icon: Bike, exact: false },
 ];
 
 export function AccountNav() {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cacheLife } from "next/cache";
 import { getCategoryTreeSafe } from "@/services/catalogue";
+import { NewsletterForm } from "./newsletter-form";
 
 /** The current time is "unstable" during prerender, so it is computed inside a cache scope. */
 async function currentYear() {
@@ -50,8 +51,16 @@ export async function SiteFooter() {
           <ul className="mt-4 space-y-2 text-sm">
             <li><Link className="hover:underline" href="/auth/login">Sign in</Link></li>
             <li><Link className="hover:underline" href="/auth/register">Create an account</Link></li>
+            <li><Link className="hover:underline" href="/account/support">Help &amp; support</Link></li>
+            <li><Link className="hover:underline" href="/delivery">Deliver with us</Link></li>
           </ul>
         </nav>
+      </div>
+      <div className="mx-auto max-w-7xl px-4 pb-10">
+        <div className="max-w-md">
+          <h2 className="mb-2 font-sans text-xs font-semibold uppercase tracking-widest text-gold">Stay in touch</h2>
+          <NewsletterForm />
+        </div>
       </div>
       <div className="border-t border-primary-foreground/15">
         <p className="mx-auto max-w-7xl px-4 py-5 text-xs text-primary-foreground/65">

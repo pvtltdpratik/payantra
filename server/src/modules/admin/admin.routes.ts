@@ -34,6 +34,12 @@ import {
   variantUpdate,
 } from './admin.schema.js';
 import { AppError } from '../../lib/errors.js';
+import { analyticsAdminRouter } from '../analytics/analytics.routes.js';
+import { customersAdminRouter } from '../customers/customers.routes.js';
+import { deliveryAdminRouter } from '../delivery/delivery-admin.routes.js';
+import { marketingAdminRouter } from '../marketing/marketing.routes.js';
+import { reviewsAdminRouter } from '../reviews/reviews.routes.js';
+import { supportAdminRouter } from '../support/support.routes.js';
 import * as coupons from '../coupons/coupons.service.js';
 import * as settings from '../settings/settings.service.js';
 import * as inventory from './inventory.service.js';
@@ -54,6 +60,12 @@ const id = (req: Request) => req.params.id as string;
  */
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireRole('ADMIN'));
+adminRouter.use(deliveryAdminRouter);
+adminRouter.use(analyticsAdminRouter);
+adminRouter.use(customersAdminRouter);
+adminRouter.use(supportAdminRouter);
+adminRouter.use(marketingAdminRouter);
+adminRouter.use(reviewsAdminRouter);
 
 // ── Products ──
 adminRouter.get(

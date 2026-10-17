@@ -1,7 +1,7 @@
 import { Prisma } from '../../config/prisma.js';
 import { AppError } from '../../lib/errors.js';
 import { notify } from '../../lib/notify.js';
-import type { FulfilmentStatus } from '../../lib/stateMachines.js';
+import { canTransition, FULFILMENT_TRANSITIONS, type FulfilmentStatus } from '../../lib/stateMachines.js';
 import { releaseCouponUse } from '../coupons/coupons.service.js';
 import { releaseReservation, restock, type StockLine } from './stock.js';
 
@@ -85,4 +85,54 @@ export async function cancelCommittedOrder(tx: Tx, order: LockedOrder, { reason,
   });
   await recordStatus(tx, order.id, 'CANCELLED', reason, actorId);
   await notify(tx, order.userId, `Order ${order.orderNumber} cancelled`, reason, `/account/orders/${order.id}`);
+
+  // A delivery partner who was assigned but has not collected the parcel is released from the job.
+  const job = await tx.deliveryAssignment.findUnique({ where: { orderId: order.id }, include: { partner: { select: { userId: true } } } });
+  if (job && (job.status === 'ASSIGNED' || job.status === 'ACCEPTED')) {
+    await tx.deliveryAssignment.update({ where: { id: job.id }, data: { status: 'REJECTED', failureReason: 'Order cancelled' } });
+    await tx.deliveryStatusHistory.create({ data: { assignmentId: job.id, status: 'REJECTED', reason: 'Order cancelled', actorId: actorId ?? null } });
+    await notify(tx, job.partner.userId, `Delivery cancelled: ${order.orderNumber}`, 'The order was cancelled before pickup.', '/delivery');
+  }
+}
+
+const STATUS_PHRASE: Partial<Record<FulfilmentStatus, string>> = {
+  PAYMENT_CONFIRMED: 'confirmed',
+  PROCESSING: 'being prepared',
+  PACKED: 'packed',
+  SHIPPED: 'shipped',
+  OUT_FOR_DELIVERY: 'out for delivery',
+  DELIVERED: 'delivered',
+};
+
+/**
+ * The ONE place a forward fulfilment move is applied, whoever asks for it (an admin's button or a
+ * delivery partner's action), so every dashboard follows the same rules:
+ *  - the move must be in the state machine;
+ *  - delivering a Cash-on-Delivery order is the moment the cash is collected, so it becomes paid;
+ *  - the customer is told, and the move is recorded in the order's history.
+ * The caller holds the order lock and decides WHO may ask; this decides WHAT may happen.
+ */
+export async function moveOrder(
+  tx: Tx,
+  order: LockedOrder,
+  to: FulfilmentStatus,
+  { note, actorId, notifyBody }: { note?: string | null; actorId?: string | null; notifyBody?: string } = {},
+): Promise<void> {
+  if (!canTransition(FULFILMENT_TRANSITIONS, order.fulfilmentStatus, to)) {
+    throw AppError.conflict(`An order that is ${order.fulfilmentStatus.toLowerCase().replace(/_/g, ' ')} cannot move to ${to.toLowerCase().replace(/_/g, ' ')}`, {
+      from: order.fulfilmentStatus,
+      to,
+    });
+  }
+  await tx.order.update({
+    where: { id: order.id },
+    data: {
+      fulfilmentStatus: to,
+      ...(to === 'DELIVERED' && order.paymentMethod === 'COD' && order.paymentStatus === 'PENDING'
+        ? { paymentStatus: 'CAPTURED' as const, paidAt: new Date() }
+        : {}),
+    },
+  });
+  await recordStatus(tx, order.id, to, note ?? undefined, actorId);
+  await notify(tx, order.userId, `Order ${order.orderNumber} is ${STATUS_PHRASE[to] ?? to.toLowerCase().replace(/_/g, ' ')}`, notifyBody ?? note ?? '', `/account/orders/${order.id}`);
 }

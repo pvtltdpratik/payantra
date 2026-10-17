@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/proxy";
 
-const PROTECTED_PREFIXES = ["/admin", "/account", "/cart", "/checkout", "/wishlist"];
+const PROTECTED_PREFIXES = ["/admin", "/account", "/cart", "/checkout", "/wishlist", "/delivery"];
 
 /**
  * 1. Sends visitors with no session cookie to sign-in, remembering the exact page they wanted.

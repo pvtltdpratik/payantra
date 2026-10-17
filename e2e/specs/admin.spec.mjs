@@ -11,7 +11,8 @@ export async function run({ stack, browser, t, shared }) {
   t.section('Admin: order list');
   {
     await goto(admin, stack, '/admin');
-    t.check('/admin lands on the orders screen', new URL(admin.url()).pathname === '/admin/orders', admin.url());
+    t.check('/admin opens the overview dashboard', new URL(admin.url()).pathname === '/admin' && /Overview/.test(await text(admin, 'h1')), admin.url());
+    await goto(admin, stack, '/admin/orders');
     const rows = await admin.$$eval('[data-testid=admin-order-row]', (r) => r.length);
     t.check('the shoppers’ orders are listed', rows >= 3, `${rows} rows`);
 

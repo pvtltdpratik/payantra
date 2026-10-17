@@ -1,5 +1,6 @@
 import type { Gender } from "./catalogue";
 import type { FulfilmentStatus, OrderView, PaymentMethod, PaymentStatus } from "./commerce";
+import type { AdminAssignment } from "./delivery";
 
 export interface AdminOrderRow {
   id: string;
@@ -15,10 +16,12 @@ export interface AdminOrderRow {
   itemCount: number;
 }
 
-export interface AdminOrderView extends OrderView {
+/** Admins never receive the customer's delivery code: they see the operational assignment instead. */
+export interface AdminOrderView extends Omit<OrderView, "delivery"> {
   customer: { id: string; email: string; fullName: string | null; phone: string | null };
   /** The statuses an admin may move this order to right now. */
   nextStatuses: FulfilmentStatus[];
+  assignment: AdminAssignment | null;
 }
 
 export interface AdminReturnRow {
@@ -53,6 +56,7 @@ export interface AppSettings {
   shipping: { flatRate: number; freeThreshold: number };
   payments: { codEnabled: boolean; codMaxOrder: number; reservationMinutes: number };
   returns: { returnWindowDays: number; replacementEnabled: boolean };
+  delivery: { defaultPayout: number; requireVehicle: boolean; requireIdDocument: boolean };
 }
 
 export type ProductStatus = "DRAFT" | "ACTIVE" | "ARCHIVED";

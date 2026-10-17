@@ -81,6 +81,10 @@ export async function startStack({ log = console.log } = {}) {
       LOG_LEVEL: 'warn',
       DATABASE_URL: db.url,
       DATABASE_POOL_MAX: useRealPg ? '10' : '1', // PGlite is one session: see README
+      // The API loads server/.env on startup; a developer's real RDS settings must not leak into the throwaway database.
+      DATABASE_SSL: 'false',
+      DATABASE_SSL_CA: '',
+      DELIVERY_OTP_SECRET: 'e2e-only-delivery-otp-secret-0123456789abcdef',
       CORS_ORIGINS: web,
       SUPABASE_URL: supabase.url,
       RAZORPAY_KEY_ID: 'rzp_test_e2e',
@@ -139,6 +143,8 @@ export async function startStack({ log = console.log } = {}) {
       admin: { email: 'admin@payantra.test', password: 'Admin#2026pass', fullName: 'Ananya Admin' },
       alice: { email: 'alice@payantra.test', password: 'Alice#2026pass', fullName: 'Alice Rao' },
       bob: { email: 'bob@payantra.test', password: 'Bob#2026pass', fullName: 'Bob Iyer' },
+      rider: { email: 'rider@payantra.test', password: 'Rider#2026pass', fullName: 'Ravi Kumar' },
+      rider2: { email: 'rider2@payantra.test', password: 'Rider2#2026pass', fullName: 'Sunita Patil' },
     };
     for (const a of Object.values(accounts)) a.id = (await post(`${supabase.url}/__mock/users`, a)).id;
     const tokenFor = async (who) => (await post(`${supabase.url}/__mock/token`, { email: accounts[who].email })).access_token;

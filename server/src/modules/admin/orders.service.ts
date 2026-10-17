@@ -5,19 +5,11 @@ import { AppError } from '../../lib/errors.js';
 import { notify } from '../../lib/notify.js';
 import { pageMeta, toSkipTake } from '../../lib/pagination.js';
 import { canTransition, FULFILMENT_TRANSITIONS, type FulfilmentStatus } from '../../lib/stateMachines.js';
-import { lockOrder, recordStatus, stockLinesOf } from '../orders/order-lifecycle.js';
+import { adminAssignmentView } from '../delivery/delivery-admin.service.js';
+import { lockOrder, moveOrder, recordStatus, stockLinesOf } from '../orders/order-lifecycle.js';
 import { cancelOrder, orderViewInclude, toOrderView } from '../orders/orders.service.js';
 import { restock } from '../orders/stock.js';
 import { executeRefund, requestRefund } from '../payments/payments.service.js';
-
-const STATUS_LABEL: Record<string, string> = {
-  PAYMENT_CONFIRMED: 'confirmed',
-  PROCESSING: 'being prepared',
-  PACKED: 'packed',
-  SHIPPED: 'shipped',
-  OUT_FOR_DELIVERY: 'out for delivery',
-  DELIVERED: 'delivered',
-};
 
 /** Statuses an admin may set directly. Cancellation, returns and payment are handled by dedicated actions. */
 const ADMIN_SETTABLE: FulfilmentStatus[] = ['PAYMENT_CONFIRMED', 'PROCESSING', 'PACKED', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'];
@@ -82,7 +74,10 @@ export async function getOrder(id: string) {
   });
   if (!order) throw AppError.notFound('Order not found');
   const { user, ...rest } = order;
-  return { ...(await toOrderView(rest)), customer: user, nextStatuses: adminNextStatuses(order) };
+  // The delivery code belongs to the customer: admins get the operational view of the assignment instead.
+  const { delivery: _customerView, ...view } = await toOrderView(rest);
+  void _customerView;
+  return { ...view, customer: user, nextStatuses: adminNextStatuses(order), assignment: await adminAssignmentView(prisma, id) };
 }
 
 /** The next statuses an admin can actually choose from here (not cancellation/returns, not manual payment confirmation online). */
@@ -108,19 +103,20 @@ export async function updateStatus(req: Request, orderId: string, status: Fulfil
       });
     }
 
-    await tx.order.update({
-      where: { id: orderId },
-      data: {
-        fulfilmentStatus: status,
-        // Cash is collected at the door: delivery is the moment a COD order becomes paid.
-        ...(status === 'DELIVERED' && order.paymentMethod === 'COD' && order.paymentStatus === 'PENDING'
-          ? { paymentStatus: 'CAPTURED' as const, paidAt: new Date() }
-          : {}),
-      },
-    });
-    await recordStatus(tx, orderId, status, note, req.user!.id);
+    // Once a delivery partner is on the job, the partner's own actions (with the delivery code) are the
+    // source of truth for the hand-over. An admin who needs to take over unassigns or reassigns first.
+    if (['SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(status)) {
+      const assignment = await tx.deliveryAssignment.findUnique({ where: { orderId }, select: { status: true, partner: { select: { user: { select: { fullName: true, email: true } } } } } });
+      if (assignment && !['REJECTED', 'RETURNED_TO_ORIGIN'].includes(assignment.status)) {
+        const who = assignment.partner.user.fullName ?? assignment.partner.user.email;
+        throw AppError.conflict(`This order is with delivery partner ${who}; they update the delivery. Unassign or reassign it first to change it by hand.`, {
+          code: 'ASSIGNED_TO_PARTNER',
+        });
+      }
+    }
+
+    await moveOrder(tx, order, status, { note, actorId: req.user!.id });
     await audit(tx, req, { action: 'order.status', entityType: 'Order', entityId: orderId, metadata: { from: order.fulfilmentStatus, to: status, note: note ?? null } });
-    await notify(tx, order.userId, `Order ${order.orderNumber} is ${STATUS_LABEL[status] ?? status.toLowerCase()}`, note ?? '', `/account/orders/${orderId}`);
   });
   return getOrder(orderId);
 }

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { Suspense } from "react";
+import { AutoRefresh } from "@/components/orders/auto-refresh";
+import { DeliveryCard } from "@/components/orders/delivery-card";
 import { OrderActions } from "@/components/orders/order-actions";
 import { OrderStatusBadge, OrderTimeline, PaymentStatusText } from "@/components/orders/order-status";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -73,6 +75,9 @@ async function Body({ params, searchParams }: Pick<PageProps<"/account/orders/[i
       )}
 
       <OrderActions order={o} />
+
+      <AutoRefresh active={["SHIPPED", "OUT_FOR_DELIVERY"].includes(o.fulfilmentStatus)} />
+      <DeliveryCard delivery={o.delivery} />
 
       <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
         <section aria-labelledby="items-h" className="space-y-4">

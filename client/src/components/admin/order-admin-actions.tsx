@@ -31,6 +31,9 @@ export function OrderAdminActions({ order }: { order: AdminOrderView }) {
   const refundable = pay && (pay.status === "CAPTURED" || pay.status === "PARTIALLY_REFUNDED") ? pay.amount - pay.refundedAmount : 0;
   const pendingRefunds = order.refunds.filter((r) => r.status === "PENDING");
   const canCancel = order.fulfilmentStatus !== "CANCELLED" && order.actions.canCancel;
+  // With a partner on the job, the hand-over steps belong to the partner (the server enforces this too).
+  const withPartner = !!order.assignment && !["REJECTED", "RETURNED_TO_ORIGIN"].includes(order.assignment.status);
+  const manualNext = order.nextStatuses.filter((s) => !(withPartner && ["SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"].includes(s)));
 
   async function run(key: string, call: () => Promise<unknown>, ok: string) {
     setBusy(key);
@@ -63,14 +66,14 @@ export function OrderAdminActions({ order }: { order: AdminOrderView }) {
         </p>
       )}
 
-      {order.nextStatuses.length > 0 ? (
+      {manualNext.length > 0 ? (
         <div className="space-y-2">
           <label className="block text-sm font-medium" htmlFor="status-note">
             Note to the customer (optional)
           </label>
           <Input id="status-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Courier: BlueDart AWB 123456" className="h-10" />
           <div className="flex flex-wrap gap-2 pt-1">
-            {order.nextStatuses.map((s) => (
+            {manualNext.map((s) => (
               <Button
                 key={s}
                 disabled={busy !== null}
@@ -83,6 +86,8 @@ export function OrderAdminActions({ order }: { order: AdminOrderView }) {
             ))}
           </div>
         </div>
+      ) : withPartner && order.nextStatuses.length > 0 ? (
+        <p className="text-sm text-muted-foreground">The delivery partner updates the shipping steps. Use the Delivery panel to reassign or unassign.</p>
       ) : (
         <p className="text-sm text-muted-foreground">No further fulfilment steps from {STATUS_LABEL[order.fulfilmentStatus].toLowerCase()}.</p>
       )}

@@ -39,25 +39,44 @@ export async function applyMigrations(db, log = () => {}) {
 }
 
 /**
+ * PGlite runs Postgres inside an Emscripten/WASM runtime whose "quit" hook is `process.exitCode = status`.
+ * Postgres calls it during start-up and shutdown, so merely using PGlite leaves the host process with a stray exit
+ * code (99 after a clean start-up, 0 after a close). Under a test runner that is fatal: a FAILED run exits 0 and a
+ * passing one exits 99, so CI cannot tell them apart. Every PGlite start/stop therefore restores the code.
+ */
+async function keepingExitCode(fn) {
+  const before = process.exitCode;
+  try {
+    return await fn();
+  } finally {
+    process.exitCode = before;
+  }
+}
+
+/**
  * @param {{ dataDir?: string, port?: number, log?: (m: string) => void }} opts
  *   dataDir omitted → in-memory database that disappears when the process exits.
  */
 export async function startPglite({ dataDir, port, log = () => {} } = {}) {
   const db = dataDir ? new PGlite(dataDir) : new PGlite();
-  await db.waitReady;
-  await applyMigrations(db, log);
+  await keepingExitCode(async () => {
+    await db.waitReady;
+    await applyMigrations(db, log);
+  });
 
   const listenPort = port ?? (await freePort());
   const server = new PGLiteSocketServer({ db, port: listenPort, host: '127.0.0.1', maxConnections: 20 });
-  await server.start();
+  await keepingExitCode(() => server.start());
 
   return {
     db,
     port: listenPort,
     url: `postgresql://postgres:postgres@127.0.0.1:${listenPort}/postgres`,
     async stop() {
-      await server.stop();
-      await db.close();
+      await keepingExitCode(async () => {
+        await server.stop();
+        await db.close();
+      });
     },
   };
 }

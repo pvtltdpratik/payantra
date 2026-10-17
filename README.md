@@ -2,10 +2,12 @@
 
 Premium Indian fashion e-commerce: Next.js storefront + Express API + PostgreSQL (AWS RDS) + Supabase Auth + Razorpay.
 
-> **Status: Phase 3 — Commerce.** Phases 1–3 are complete and tested: foundation, authentication & catalogue, and now cart, checkout,
-> Razorpay payments, orders and refunds. The role dashboards (Phase 4), the 3D landing page (Phase 5) and hardening (Phase 6) are next.
-> See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the plan and ER diagram, [docs/API.md](docs/API.md) for the endpoints, and
-> [docs/PAYMENTS.md](docs/PAYMENTS.md) for how payments, stock and refunds stay correct (and how to try the Razorpay sandbox).
+> **Status: Phase 4 — Dashboards.** Phases 1–4 are complete and tested: foundation, authentication & catalogue, commerce and payments, and now the
+> three dashboards — the customer account, the delivery-partner app and the admin control panel with reports. The 3D landing page (Phase 5) and
+> production hardening (Phase 6) are next.
+> See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the plan and ER diagram, [docs/API.md](docs/API.md) for the endpoints,
+> [docs/PAYMENTS.md](docs/PAYMENTS.md) for how payments, stock and refunds stay correct (and the Razorpay sandbox checklist),
+> [docs/DELIVERY.md](docs/DELIVERY.md) for delivery partners and the delivery code, and [docs/REPORTS.md](docs/REPORTS.md) for how every dashboard number is defined.
 
 ## What works today
 
@@ -20,9 +22,12 @@ Premium Indian fashion e-commerce: Next.js storefront + Express API + PostgreSQL
 | Payments | Server-side order creation, HMAC signature verification, idempotent webhooks, late-payment recovery, automatic refunds of duplicates, partial and full refunds with provider-timeout recovery |
 | Orders | Timeline tracking, cancellation, return/replacement requests, reorder, printable invoice, in-app notifications |
 | Admin | Products, variants, images, inventory + ledger, categories, users & roles, **orders pipeline, refunds, return queue, coupons, store settings (shipping, COD, reservation window, return window)** |
-| Data | 33-table schema, 5 migrations, DB-level integrity (stock, prices, totals, refunds, uniqueness), seed script with 33 products |
+| Delivery partners | Apply → admin approval → go online → accept/decline → pick up → out for delivery → **deliver with the customer's 6-digit code** (or report a failed attempt, retry, or return to origin); privacy-limited customer details, cash-on-delivery amounts, earnings and 14-day performance. Mobile-first at `/delivery` |
+| Admin dashboard | Live overview (net revenue, orders, customers, partners, low stock, pending work, recent transactions, sales chart, change vs the previous period); **reports** for sales, products, inventory, payments & refunds and delivery with **CSV export**; customers; delivery-partner approval and assignment; support inbox; review moderation; banners; newsletter; audit log |
+| Customer account | Profile, addresses, orders with live delivery tracking, **reviews** (verified purchases only), **recently viewed**, notifications (header bell), help & support, password change and "sign out other devices", newsletter sign-up |
+| Data | 33-table schema, 6 migrations, DB-level integrity (stock, prices, totals, refunds, uniqueness), seed script with 33 products |
 
-Not built yet: delivery-partner dashboard, customer/admin analytics dashboards and reports (Phase 4), reviews, the 3D landing page (Phase 5).
+Not built yet: the 3D landing page and animation layer (Phase 5); production hardening, monitoring and deployment automation (Phase 6).
 
 ## Repository layout
 
@@ -51,7 +56,8 @@ npm run db:dev                       # → postgresql://postgres:postgres@127.0.
 
 # 2. In a second terminal: API
 cd server
-cp .env.example .env                 # then set DATABASE_URL, DATABASE_POOL_MAX=1, SUPABASE_URL (any https URL for now), RAZORPAY_* (any value)
+cp .env.example .env                 # then set DATABASE_URL, DATABASE_POOL_MAX=1, SUPABASE_URL (any https URL for now), RAZORPAY_* (any value);
+                                     # production also needs DELIVERY_OTP_SECRET (32+ random characters, see .env.example)
 npm run seed                         # 33 demo products
 npm run dev                          # http://localhost:4000/api/v1/health/ready
 
@@ -97,13 +103,13 @@ After that, admins manage other roles at **/admin/users**; every change is writt
 | server | `npm run db:dev` | Local Postgres (PGlite) on :5433 |
 | server | `npm run seed` | Demo catalogue (idempotent; refuses `NODE_ENV=production`) |
 | server | `npm run make-admin -- <email>` | Promote an existing user to ADMIN |
-| server | `npm test` | 245 tests against a real (in-memory) Postgres engine, with a stand-in for Razorpay's API |
+| server | `npm test` | 330+ tests against a real (in-memory) Postgres engine, with a stand-in for Razorpay's API. Its exit code is trustworthy: non-zero when anything fails |
 | server | `npm run test:pg` | The same suite against a **private, throwaway PostgreSQL server** with a real 10-connection pool (needs PostgreSQL binaries installed; never touches an existing server) |
 | server | `npm run db:verify` | Apply all migrations and assert the DB-level guarantees |
 | server | `npm run db:drift` | Fail if `schema.prisma` and the migrations disagree |
 | server | `npm run typecheck` / `build` / `start` | |
 | client | `npm run dev` / `build` / `lint` | |
-| e2e | `cd e2e && npm install && npm run e2e` | Full-stack browser run (auth, shopper, admin, catalogue, responsive). Pass spec names to run some (`npm run e2e -- shopper admin`); `E2E_DB=postgres` uses a private real PostgreSQL; `BROWSER_PATH` picks the browser; `E2E_SKIP_BUILD=1` reuses the last storefront build while iterating on specs only |
+| e2e | `cd e2e && npm install && npm run e2e` | Full-stack browser run (auth, shopper, admin, catalogue, delivery, experience, responsive). Pass spec names to run some (`npm run e2e -- shopper admin`); `E2E_DB=postgres` uses a private real PostgreSQL; `BROWSER_PATH` picks the browser; `E2E_SKIP_BUILD=1` reuses the last storefront build while iterating on specs only |
 
 ## Security model (summary)
 
@@ -114,7 +120,10 @@ After that, admins manage other roles at **/admin/users**; every change is writt
 - Stock cannot go negative or below reserved units (CHECK constraints + atomic conditional updates). Order totals obey `grandTotal = subtotal − discount + shipping` (CHECK).
 - The browser never sends a price. Checkout re-prices the cart on the server; payment amounts are compared with the order total before anything is marked paid.
 - Razorpay signatures (checkout and webhook) are verified with HMAC-SHA256 in constant time; the webhook is verified against the raw body and de-duplicated by event id.
-- Another customer's order, address or wishlist is `404`, never `403` (no existence oracle).
+- Another customer's order, address, wishlist, review or support request is `404`, never `403` (no existence oracle).
+- Delivery handover is proven by a six-digit code that is **derived, never stored**; five wrong guesses lock it. Delivery partners see a customer's address and phone only while working that job, never their e-mail or prices.
+- Roles are granted server-side by an admin only (partner approval or the Users screen); applying for anything never changes access.
+- CSV exports neutralise spreadsheet formulas in customer-supplied text, and are never cached.
 - Helmet, strict CORS allow-list, rate limiting, 100 kB body limit, Zod validation on every input, no secrets in logs.
 - The Next.js proxy redirects unauthenticated visitors early, but is only a convenience — Server Components and the API re-check.
 
@@ -125,6 +134,7 @@ After that, admins manage other roles at **/admin/users**; every change is writt
 - **API errors/timeouts under load with the dev DB** — set `DATABASE_POOL_MAX=1` (see above).
 - **The Pay button stays disabled** — the Razorpay script (`checkout.razorpay.com`) did not load (ad-blocker or offline); the page shows a message after the load fails.
 - **Orders stay "Payment pending" after paying** — the webhook is not reaching the API. Check the URL, the secret, and the delivery log in Razorpay's dashboard ([docs/PAYMENTS.md](docs/PAYMENTS.md)). `/payments/verify` normally settles it even without the webhook.
+- **Tests hang with no error, or CI is green although tests failed** — a developer's `server/.env` leaked into the run (e.g. `DATABASE_SSL=true` makes every query to the throwaway database hang), or an exit code was lost. The test configs now pin these values; if you add a new env variable that must differ under test, pin it in `server/vitest.config.mts` and `e2e/lib/stack.mjs`.
 - **A browser test hangs on a click or wait** — a background tab never runs `requestAnimationFrame`. The helpers in `e2e/lib/browser.mjs` handle this; use them and give each signed-in person their own `isolated` page.
 - **Shop shows no filters / products** — check `/api/v1/health/ready` returns `ready` and that `NEXT_PUBLIC_API_URL` was set *when the client was built* (it is inlined at build time).
 - **Home page shows "database is unreachable"** — API is up but `DATABASE_URL` is wrong or the RDS security group blocks you.
@@ -140,7 +150,10 @@ After that, admins manage other roles at **/admin/users**; every change is writt
   It cannot cause a wrong charge: the cart and checkout always use the server's current price and stock.
 - The invoice shows GST per line but has no seller GSTIN/address or CGST/SGST/IGST split yet — add a seller setting before issuing invoices legally.
 - Cash on Delivery refunds are handled outside the system (the admin UI says so); only online payments are refunded through Razorpay.
-- Collections have an admin API but no admin screen yet; reviews and the role dashboards come with Phase 4.
+- Collections have an admin API but no admin screen yet.
+- Delivery assignment is manual (an admin chooses the partner); there is no automatic dispatch or live location. Partner payouts are shown as earnings but settled outside Payantra ([docs/DELIVERY.md](docs/DELIVERY.md)).
+- Support is a simple inbox with one reply per message — not a full ticketing system. The newsletter stores subscribers; sending campaigns needs an e-mail provider.
+- Reports hold up to 1,000 rows on screen and 50,000 in a CSV; narrow the dates for more. Profit and margin are not reported because no product cost is stored.
 - Catalogue search is `ILIKE`-based; add `pg_trgm`/full-text indexes when the catalogue grows past a few thousand products.
 - Prisma 7 requires the `@prisma/adapter-pg` driver adapter; the connection URL lives in `prisma.config.ts`.
 - The server is native ESM: relative imports carry a `.js` extension, and the Prisma client is generated with `importFileExtension = "js"`.

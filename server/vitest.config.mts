@@ -21,6 +21,12 @@ export default defineConfig({
       // from different pool connections would interleave: tests use ONE connection there.
       // Against a real server (TEST_DB=postgres) use a real pool so requests genuinely race.
       DATABASE_POOL_MAX: process.env.TEST_DB === 'postgres' ? '10' : '1',
+      // config/env.ts loads server/.env (dotenv). A developer's real settings there — e.g. DATABASE_SSL=true for RDS —
+      // must never reach the throwaway test database, which does not speak TLS (every query would hang).
+      DATABASE_SSL: 'false',
+      DATABASE_SSL_CA: '',
+      DELIVERY_OTP_SECRET: 'test-only-delivery-otp-secret-0123456789',
+      ORDER_EXPIRY_SWEEP_SECONDS: '0',
       SUPABASE_URL: 'https://test-project.supabase.co',
       RAZORPAY_KEY_ID: 'rzp_test_dummy',
       RAZORPAY_KEY_SECRET: 'dummy_secret',

@@ -20,7 +20,7 @@ function Notice({ msg }: { msg: Msg }) {
   );
 }
 
-function useSave(key: "shipping" | "payments" | "returns") {
+function useSave(key: "shipping" | "payments" | "returns" | "delivery") {
   const router = useRouter();
   const [msg, setMsg] = useState<Msg>(null);
   const [busy, setBusy] = useState(false);
@@ -57,6 +57,11 @@ export function SettingsForms({ settings }: { settings: AppSettings }) {
   const ret = useSave("returns");
   const [days, setDays] = useState(String(settings.returns.returnWindowDays));
   const [repl, setRepl] = useState(settings.returns.replacementEnabled);
+  // Delivery partners
+  const del = useSave("delivery");
+  const [payout, setPayout] = useState(paiseToRupees(settings.delivery.defaultPayout) || "0");
+  const [needVehicle, setNeedVehicle] = useState(settings.delivery.requireVehicle);
+  const [needId, setNeedId] = useState(settings.delivery.requireIdDocument);
 
   return (
     <div className="space-y-8">
@@ -124,6 +129,31 @@ export function SettingsForms({ settings }: { settings: AppSettings }) {
           Allow replacement requests
         </label>
         <Button type="submit" disabled={ret.busy} className="h-10">Save return policy</Button>
+      </form>
+
+      <form
+        className={card}
+        aria-label="Delivery partners"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const rate = rupeesToPaise(payout);
+          if (rate === null) return del.setMsg({ kind: "error", text: "Enter the payout in rupees, like 40 or 52.50." });
+          void del.save({ defaultPayout: rate, requireVehicle: needVehicle, requireIdDocument: needId });
+        }}
+      >
+        <h2 className="text-2xl font-semibold">Delivery partners</h2>
+        <Notice msg={del.msg} />
+        <label className={field}>Paid per delivery to newly approved partners (₹)<Input value={payout} onChange={(e) => setPayout(e.target.value)} inputMode="decimal" className="h-10 font-normal sm:max-w-xs" /></label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={needVehicle} onChange={(e) => setNeedVehicle(e.target.checked)} className="size-4 accent-[var(--primary)]" />
+          Applicants must say what vehicle they use
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={needId} onChange={(e) => setNeedId(e.target.checked)} className="size-4 accent-[var(--primary)]" />
+          Applicants must give an ID document type and verification reference
+        </label>
+        <p className="text-xs text-muted-foreground">Each partner&apos;s own rate can be changed on their page. Applicants are never asked for a full ID number.</p>
+        <Button type="submit" disabled={del.busy} className="h-10">Save delivery settings</Button>
       </form>
     </div>
   );

@@ -1,4 +1,5 @@
 import type { MediaImage } from "./catalogue";
+import type { CustomerDelivery } from "./delivery";
 
 /** All money is integer paise. */
 
@@ -153,6 +154,8 @@ export interface OrderView {
   payment: { status: PaymentStatus; method: string | null; amount: number; refundedAmount: number; failureReason: string | null } | null;
   refunds: { id: string; amount: number; status: string; reason: string | null; createdAt: string; processedAt: string | null }[];
   timeline: { status: FulfilmentStatus; note: string | null; at: string }[];
+  /** The delivery partner's progress and, while out for delivery, the code the customer reads to them. */
+  delivery: CustomerDelivery | null;
   returns: { id: string; type: "RETURN" | "REPLACEMENT"; status: string; reason: string; adminNote: string | null; refundAmount: number | null; createdAt: string }[];
   actions: {
     canCancel: boolean;

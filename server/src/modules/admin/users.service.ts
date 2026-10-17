@@ -4,6 +4,7 @@ import { audit } from '../../lib/audit.js';
 import { AppError } from '../../lib/errors.js';
 import { advisoryLock } from '../../lib/locks.js';
 import { pageMeta, toSkipTake } from '../../lib/pagination.js';
+import { getSettings } from '../settings/settings.service.js';
 
 type Role = 'CUSTOMER' | 'DELIVERY_PARTNER' | 'ADMIN';
 type Status = 'ACTIVE' | 'SUSPENDED';
@@ -60,6 +61,19 @@ export async function updateUser(req: Request, targetId: string, patch: { role?:
       }
 
       const updated = await tx.profile.update({ where: { id: targetId }, data: patch, select: userSelect });
+
+      // An admin granting the delivery role IS the approval, so the partner record must exist and be active;
+      // taking the role away (or suspending the account) sends the partner offline.
+      if (patch.role === 'DELIVERY_PARTNER') {
+        const { delivery } = await getSettings(tx);
+        await tx.deliveryPartner.upsert({
+          where: { userId: targetId },
+          create: { userId: targetId, status: 'APPROVED', approvedById: req.user!.id, approvedAt: new Date(), perDeliveryPayout: delivery.defaultPayout },
+          update: { status: 'APPROVED', approvedById: req.user!.id, approvedAt: new Date(), rejectionReason: null },
+        });
+      } else if ((patch.role !== undefined && target.role === 'DELIVERY_PARTNER') || patch.status === 'SUSPENDED') {
+        await tx.deliveryPartner.updateMany({ where: { userId: targetId }, data: { isOnline: false } });
+      }
       await audit(tx, req, {
         action: 'user.update',
         entityType: 'Profile',

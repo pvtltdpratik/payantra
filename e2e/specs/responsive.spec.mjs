@@ -79,10 +79,18 @@ export async function run({ stack, browser, t }) {
     ['account', '/account'],
     ['addresses', '/account/addresses'],
     ['orders', '/account/orders'],
+    ['reviews', '/account/reviews'],
+    ['notifications', '/account/notifications'],
+    ['help & support', '/account/support'],
+    ['security', '/account/security'],
     ...(orders[0] ? [['order detail', `/account/orders/${orders[0].id}`], ['invoice', `/account/orders/${orders[0].id}/invoice`]] : []),
   ]);
   await shopper.close();
   await api('alice', 'DELETE', '/cart');
+
+  const riderPages = [['today', '/delivery'], ['history', '/delivery/history'], ['apply', '/delivery/apply']];
+  const rider = await pass('rider', 'Phone: delivery pages', riderPages);
+  await rider.close();
 
   const admin = await pass('admin', 'Phone: admin pages', [
     ['orders', '/admin/orders'],
@@ -95,6 +103,15 @@ export async function run({ stack, browser, t }) {
     ['coupons', '/admin/coupons'],
     ['users', '/admin/users'],
     ['settings', '/admin/settings'],
+    ['overview', '/admin'],
+    ['reports', '/admin/analytics?report=sales'],
+    ['customers', '/admin/customers'],
+    ['support', '/admin/support'],
+    ['banners', '/admin/banners'],
+    ['newsletter', '/admin/newsletter'],
+    ['reviews', '/admin/reviews'],
+    ['audit log', '/admin/audit'],
+    ['delivery partners', '/admin/delivery-partners'],
   ]);
   await admin.close();
 }

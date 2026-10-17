@@ -186,6 +186,8 @@ model DeliveryPartner {
   idDocumentType   String?
   idDocumentRef    String? // reference to a stored document, not the document number itself
   rejectionReason  String?
+  /// Free text the applicant wrote when applying (areas they can cover, experience, availability).
+  applicationNote  String?
   approvedById     String?       @db.Uuid
   approvedAt       DateTime?
   perDeliveryPayout Int         @default(0) // paise
@@ -492,6 +494,7 @@ model Order {
   @@index([userId, createdAt])
   @@index([paymentStatus, fulfilmentStatus])
   @@index([createdAt])
+  @@index([paidAt])
 }
 
 model OrderItem {
@@ -623,6 +626,14 @@ model DeliveryAssignment {
   pickedUpAt    DateTime?
   deliveredAt   DateTime?
   otpAttempts   Int            @default(0)
+  /// Who assigned this partner (an admin). Kept for the audit trail.
+  assignedById  String?        @db.Uuid
+  /// The delivery code is derived (HMAC of assignment id + this counter), never stored. Bumping the counter
+  /// invalidates the previous code; `otpAttempts` is reset with it.
+  otpEpoch      Int            @default(0)
+  otpExpiresAt  DateTime?
+  /// What the partner earns for this delivery, snapshotted when it is delivered (the partner's rate may change later).
+  payoutAmount  Int            @default(0)
 
   order   Order                  @relation(fields: [orderId], references: [id])
   partner DeliveryPartner        @relation(fields: [partnerId], references: [id])
@@ -687,6 +698,8 @@ model SupportRequest {
   message   String
   status    SupportStatus @default(OPEN)
   reply     String?
+  repliedById String?     @db.Uuid
+  repliedAt DateTime?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
