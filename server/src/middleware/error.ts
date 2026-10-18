@@ -1,7 +1,7 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { env } from '../config/env.js';
-import { logger } from '../config/logger.js';
 import { AppError } from '../lib/errors.js';
+import { reportError } from '../lib/monitoring.js';
 
 export const notFoundHandler: RequestHandler = (req, _res, next) => {
   next(AppError.notFound(`Route not found: ${req.method} ${req.path}`));
@@ -37,11 +37,14 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     });
   }
 
-  logger.error({ err, path: req.path, method: req.method }, 'Unhandled error');
+  const requestId = typeof req.id === 'string' ? req.id : undefined;
+  reportError(err, { requestId, method: req.method, path: req.path, userId: req.user?.id });
   res.status(500).json({
     success: false,
     error: {
       code: 'INTERNAL_ERROR',
+      // Quote this to support: it finds the exact log lines for this request.
+      ...(requestId ? { requestId } : {}),
       // Never leak internals in production.
       message: env.NODE_ENV === 'production' ? 'Something went wrong' : String(err?.message ?? err),
     },

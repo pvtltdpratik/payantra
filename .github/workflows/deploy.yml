@@ -1,0 +1,196 @@
+name: Deploy
+
+# SKELETON — not run end-to-end by the author (there was no AWS/Vercel account to run it against). Every `vars.*` and
+# `secrets.*` below is a placeholder you create in GitHub (Settings → Environments → staging / production). Read
+# docs/DEPLOYMENT.md first; it explains each variable and what to verify after the first run.
+#
+# Shape:  CI (same checks as a PR, incl. e2e)  →  API image  →  database migration (one-off task)  →  API rollout
+#         →  storefront deploy  →  smoke test.   Any failing step stops everything after it.
+#
+# Secrets policy: nothing sensitive is written in this repository.
+#   - AWS access is by short-lived OIDC credentials (an IAM role GitHub can assume), not stored access keys.
+#   - Runtime secrets (DATABASE_URL, RAZORPAY_*, DELIVERY_OTP_SECRET, SENTRY_DSN…) live in AWS Secrets Manager / SSM and are
+#     injected by the ECS task definition — they never pass through GitHub at all.
+#   - GitHub holds only deploy credentials (role ARN, Vercel token), as environment secrets, with required reviewers on
+#     the `production` environment.
+
+on:
+  push:
+    tags: ['v*.*.*'] # a release tag deploys to STAGING automatically
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to deploy (production needs the environment's reviewers to approve)
+        type: choice
+        options: [staging, production]
+        default: staging
+      skip_web:
+        description: Deploy the API only
+        type: boolean
+        default: false
+
+# One deploy per environment at a time; a newer one waits instead of racing a half-finished rollout.
+concurrency:
+  group: deploy-${{ inputs.environment || 'staging' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+
+  api-image:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'staging' }}
+    permissions:
+      id-token: write # OIDC → AWS
+      contents: read
+    outputs:
+      api: ${{ steps.meta.outputs.api }}
+      migrate: ${{ steps.meta.outputs.migrate }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - uses: docker/setup-buildx-action@v3
+      - id: meta
+        run: |
+          REPO="${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}"
+          echo "api=$REPO:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "migrate=$REPO:${GITHUB_SHA}-migrate" >> "$GITHUB_OUTPUT"
+      - name: Build and push the API image
+        uses: docker/build-push-action@v6
+        with:
+          context: server
+          target: runtime
+          push: true
+          tags: ${{ steps.meta.outputs.api }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build and push the migration image
+        uses: docker/build-push-action@v6
+        with:
+          context: server
+          target: migrate
+          push: true
+          tags: ${{ steps.meta.outputs.migrate }}
+          cache-from: type=gha
+
+  migrate:
+    # Runs `prisma migrate deploy` INSIDE the VPC as a one-off ECS task (RDS is not reachable from a GitHub runner).
+    # Migrations must be backward compatible with the PREVIOUS API version, because the old tasks keep serving until the
+    # rollout in the next job finishes (expand → deploy → contract; see docs/DEPLOYMENT.md "Migrations and rollback").
+    needs: api-image
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'staging' }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Run the migration task and wait for it
+        env:
+          IMAGE: ${{ needs.api-image.outputs.migrate }}
+        run: |
+          # The task definition "payantra-migrate" injects DATABASE_URL from Secrets Manager; only the image changes here.
+          TD=$(aws ecs describe-task-definition --task-definition "${{ vars.ECS_MIGRATE_TASK_FAMILY }}" --query taskDefinition)
+          NEW=$(echo "$TD" | jq --arg IMG "$IMAGE" 'del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy) | .containerDefinitions[0].image=$IMG')
+          ARN=$(aws ecs register-task-definition --cli-input-json "$NEW" --query taskDefinition.taskDefinitionArn --output text)
+          TASK=$(aws ecs run-task --cluster "${{ vars.ECS_CLUSTER }}" --launch-type FARGATE --task-definition "$ARN" \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ vars.ECS_SUBNETS }}],securityGroups=[${{ vars.ECS_SECURITY_GROUPS }}],assignPublicIp=DISABLED}" \
+            --query 'tasks[0].taskArn' --output text)
+          echo "migration task: $TASK"
+          aws ecs wait tasks-stopped --cluster "${{ vars.ECS_CLUSTER }}" --tasks "$TASK"
+          CODE=$(aws ecs describe-tasks --cluster "${{ vars.ECS_CLUSTER }}" --tasks "$TASK" --query 'tasks[0].containers[0].exitCode' --output text)
+          echo "exit code: $CODE"
+          [ "$CODE" = "0" ] || { echo "::error::migration failed — the API was NOT updated. See the task's CloudWatch logs."; exit 1; }
+
+  api-rollout:
+    needs: [api-image, migrate]
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'staging' }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Register a new task definition revision and roll the service
+        env:
+          IMAGE: ${{ needs.api-image.outputs.api }}
+        run: |
+          TD=$(aws ecs describe-task-definition --task-definition "${{ vars.ECS_API_TASK_FAMILY }}" --query taskDefinition)
+          PREV=$(echo "$TD" | jq -r .taskDefinitionArn)
+          echo "previous revision (for rollback): $PREV"
+          NEW=$(echo "$TD" | jq --arg IMG "$IMAGE" --arg REL "$GITHUB_SHA" 'del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy) | .containerDefinitions[0].image=$IMG | (.containerDefinitions[0].environment |= (map(select(.name != "RELEASE")) + [{name:"RELEASE",value:$REL}]))')
+          ARN=$(aws ecs register-task-definition --cli-input-json "$NEW" --query taskDefinition.taskDefinitionArn --output text)
+          aws ecs update-service --cluster "${{ vars.ECS_CLUSTER }}" --service "${{ vars.ECS_API_SERVICE }}" --task-definition "$ARN" >/dev/null
+          # With the service's deployment circuit breaker enabled (rollback: true), ECS reverts by itself if the new tasks never
+          # become healthy; this wait then fails and so does the workflow.
+          aws ecs wait services-stable --cluster "${{ vars.ECS_CLUSTER }}" --services "${{ vars.ECS_API_SERVICE }}"
+          echo "### API rolled out" >> "$GITHUB_STEP_SUMMARY"
+          echo "- new: \`$ARN\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- previous (rollback target): \`$PREV\`" >> "$GITHUB_STEP_SUMMARY"
+
+  web:
+    # Storefront on Vercel. NEXT_PUBLIC_* values and CSP_MODE are BUILD-time settings: define them in the Vercel project
+    # (Production / Preview) — they are not read from GitHub. Swap this job for your own host if you do not use Vercel.
+    needs: api-rollout
+    if: ${{ !inputs.skip_web }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'staging' }}
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm i --global vercel@latest
+      - name: Build and deploy
+        run: |
+          TARGET=${{ (inputs.environment || 'staging') == 'production' && 'production' || 'preview' }}
+          vercel pull --yes --environment="$TARGET" --token="${{ secrets.VERCEL_TOKEN }}"
+          vercel build ${{ (inputs.environment || 'staging') == 'production' && '--prod' || '' }} --token="${{ secrets.VERCEL_TOKEN }}"
+          vercel deploy --prebuilt ${{ (inputs.environment || 'staging') == 'production' && '--prod' || '' }} --token="${{ secrets.VERCEL_TOKEN }}"
+
+  smoke:
+    needs: [api-rollout, web]
+    if: ${{ always() && needs.api-rollout.result == 'success' && (needs.web.result == 'success' || needs.web.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'staging' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: API is ready (database reachable, not draining)
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "${{ vars.API_BASE_URL }}/health/ready" || true)
+            [ "$code" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "::error::API did not become ready"; exit 1
+      - name: The deployed API reports this release
+        run: |
+          curl -fsS "${{ vars.API_BASE_URL }}/health" | grep -q "${GITHUB_SHA}" || { echo "::error::deployed API is not running ${GITHUB_SHA}"; exit 1; }
+      - name: Storefront serves and sends its security headers
+        if: ${{ !inputs.skip_web }}
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.API_BASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+        run: node client/scripts/check-headers.mjs "${{ vars.SITE_URL }}"

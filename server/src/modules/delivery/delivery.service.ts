@@ -2,7 +2,7 @@ import { prisma, type Prisma } from '../../config/prisma.js';
 import { AppError } from '../../lib/errors.js';
 import { codeMatches, MAX_OTP_ATTEMPTS, OTP_TTL_MS } from '../../lib/deliveryOtp.js';
 import { advisoryLock } from '../../lib/locks.js';
-import { notify, notifyAdmins } from '../../lib/notify.js';
+import { notifyAdmins } from '../../lib/notify.js';
 import { pageMeta, toSkipTake } from '../../lib/pagination.js';
 import { canTransition, DELIVERY_TRANSITIONS, type DeliveryStatus } from '../../lib/stateMachines.js';
 import { istDateKey, istDayStart, istDayStartOffset } from '../../lib/time.js';

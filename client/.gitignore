@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# The documented template is committed; real values never are.
+!.env.example
 
 # vercel
 .vercel

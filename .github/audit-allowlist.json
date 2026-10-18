@@ -1,0 +1,12 @@
+{
+  "_comment": "Accepted dependency-audit findings. Each entry needs a reason and an expiry date (YYYY-MM-DD); .github/scripts/audit-gate.mjs fails the build once an entry expires. Never add an advisory that has a fix available.",
+  "entries": [
+    {
+      "id": "GHSA-vfj7-8cjw-p6xm",
+      "scope": "client",
+      "package": "braces (via shadcn > fast-glob > micromatch)",
+      "reason": "Stack exhaustion on deeply nested glob patterns. Reached only through the `shadcn` CLI (the storefront imports just its static tailwind.css), which globs the developer's own files; it is never loaded by the running site and no request data reaches it. No patched `braces` release exists yet (3.0.3 is the latest), and the suggested `npm audit fix --force` would downgrade shadcn to 1.0.0. Re-check when braces publishes a fix, and consider moving `shadcn` to devDependencies.",
+      "expires": "2027-01-18"
+    }
+  ]
+}

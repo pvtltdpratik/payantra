@@ -1,0 +1,30 @@
+name: Dependency audit
+
+# New advisories appear without any code change, so audit on a schedule as well as on every PR (ci.yml).
+on:
+  schedule:
+    - cron: '17 3 * * 1' # Mondays 03:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        scope: [server, client]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts
+        working-directory: ${{ matrix.scope }}
+      - name: Production dependencies (gate)
+        run: node .github/scripts/audit-gate.mjs ${{ matrix.scope }}
+      - name: Build tooling too (informational)
+        continue-on-error: true
+        run: node .github/scripts/audit-gate.mjs ${{ matrix.scope }} --include-dev

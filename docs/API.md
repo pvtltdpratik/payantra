@@ -9,6 +9,7 @@ Base URL: `/api/v1`. All responses use one envelope:
 
 - **Money is integer paise** everywhere (`1499.50 INR` → `149950`).
 - **Auth:** `Authorization: Bearer <Supabase access token>`. The role is read from the database, never from the token.
+- **Request ids:** every response has `X-Request-Id` (a caller-supplied id is reused only if it is 8–64 characters of `A-Za-z0-9._-`); a `500` repeats it as `error.requestId`. Responses to requests that carry credentials are `Cache-Control: no-store`. A request containing a NUL character anywhere is `400`.
 - **Pagination:** `page` (≥1), `pageSize` (1–100). **Rate limit:** `RATE_LIMIT_MAX` (default 300) requests/min/IP globally; `RATE_LIMIT_SENSITIVE_MAX` (default 30) per 15 min on sensitive writes (coupon codes, checkout, payment verification, cancellations, returns, refunds).
 
 ## Public
@@ -16,7 +17,8 @@ Base URL: `/api/v1`. All responses use one envelope:
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/health` | Liveness — never touches the database |
-| GET | `/health/ready` | Readiness — `503` when the database is unreachable |
+| GET | `/health/ready` | Readiness — `503` when the database is unreachable **or the instance is shutting down** (`SHUTTING_DOWN`) |
+| GET | `/health/metrics` | Prometheus-format metrics. Exists only when `METRICS_TOKEN` is set; needs `Authorization: Bearer <token>` |
 | GET | `/categories` | Active category tree; parent counts include descendants |
 | GET | `/categories/:slug` | Category with breadcrumb and children |
 | GET | `/collections` | Active collections inside their date window |

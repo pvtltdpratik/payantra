@@ -23,5 +23,5 @@ export function csvCell(value: CsvCell): string {
 export function toCsv(headers: string[], rows: CsvCell[][]): string {
   const lines = [headers.map(csvCell).join(','), ...rows.map((r) => r.map(csvCell).join(','))];
   // The BOM makes Excel read the file as UTF-8 (names, ₹ and Indic scripts survive); CRLF is the CSV standard.
-  return `﻿${lines.join('\r\n')}\r\n`;
+  return `\uFEFF${lines.join('\r\n')}\r\n`;
 }

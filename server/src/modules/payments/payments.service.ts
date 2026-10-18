@@ -537,6 +537,8 @@ export async function handleWebhook(rawBody: Buffer, signature: string | undefin
   } catch {
     throw AppError.badRequest('Malformed webhook body');
   }
+  // Valid JSON is not necessarily an event: `null`, a number or an array would crash the handling below with a 500.
+  if (event === null || typeof event !== 'object' || Array.isArray(event)) throw AppError.badRequest('Malformed webhook body');
 
   // The unique eventId is the idempotency gate: Razorpay delivers at-least-once.
   try {

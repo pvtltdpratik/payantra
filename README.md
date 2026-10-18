@@ -2,10 +2,12 @@
 
 Premium Indian fashion e-commerce: Next.js storefront + Express API + PostgreSQL (AWS RDS) + Supabase Auth + Razorpay.
 
-> **Status: Phase 5 — Premium UI.** Phases 1–5 are built and tested: foundation, authentication & catalogue, commerce and payments, the
-> three dashboards, and now the landing page with its motion layer (GSAP, Lenis, ReactBits, a lazy 3D hero with static fallbacks). Production
-> hardening (Phase 6) is next. **Open item:** the Lighthouse ≥ 85 mobile target was reached (about 80) only on a fast machine and is not yet
-> confirmed for the final build; see [docs/MOTION.md](docs/MOTION.md).
+> **Status: Phase 6 — Hardening.** Phases 1–6 are built and tested: foundation, authentication & catalogue, commerce and payments, the
+> three dashboards, the landing page with its motion layer (GSAP, Lenis, ReactBits, a lazy 3D hero with static fallbacks), and now production
+> hardening: security tests, fail-fast production configuration, structured redacted logs, health/metrics/error-report hooks, CI/CD and a
+> deployment guide ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)). **Open items:** the Lighthouse ≥ 85 mobile target was reached (about 80) only on a fast
+> machine and is not yet confirmed for the final build; see [docs/MOTION.md](docs/MOTION.md). Nothing has yet been run against live AWS, Supabase or
+> Razorpay, or on GitHub Actions itself — walk the staging and go-live checklists in the deployment guide.
 > See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the plan and ER diagram, [docs/API.md](docs/API.md) for the endpoints,
 > [docs/PAYMENTS.md](docs/PAYMENTS.md) for how payments, stock and refunds stay correct (and the Razorpay sandbox checklist),
 > [docs/DELIVERY.md](docs/DELIVERY.md) for delivery partners and the delivery code, [docs/REPORTS.md](docs/REPORTS.md) for how every dashboard number is defined,
@@ -30,8 +32,9 @@ Premium Indian fashion e-commerce: Next.js storefront + Express API + PostgreSQL
 | Landing page | Hero with a lazy React Three Fiber silk-and-jewellery scene (capable desktops only; static artwork otherwise, with a pause control), GSAP reveals and parallax, Lenis smooth scroll (mouse devices), ReactBits effects; sections for categories, featured/new/best sellers, collections, craftsmanship, seasonal edits, admin-scheduled offers and announcement bar, real customer reviews, brand story, newsletter and a product-photo gallery. Everything reads live data and hides when empty; works with reduced motion, without JavaScript, and on phones without any 3D |
 | Policies & contact | Shipping, returns (quoting the live store settings), privacy, terms and contact pages; footer contact details and social links come from `NEXT_PUBLIC_*` variables and are hidden when unset |
 | Data | 33-table schema, 6 migrations, DB-level integrity (stock, prices, totals, refunds, uniqueness), seed script with 33 products |
+| Hardening (Phase 6) | 600+ server tests, including security suites that sweep **every** route for authentication and role checks, ownership (IDOR), forged/expired/mis-addressed JWTs, injection and script payloads, CORS and headers, webhook abuse; **production configuration is validated at boot** (TLS to the database, exact HTTPS CORS origins, no placeholder secrets); JSON logs with request ids and PII/token/card redaction; `/health`, `/health/ready` (503 while draining) and optional Prometheus `/health/metrics`; optional Sentry-compatible error reports; graceful shutdown; storefront security headers + Content-Security-Policy; GitHub Actions for CI, a weekly dependency audit and a deploy skeleton |
 
-Not built yet: production hardening, monitoring and deployment automation (Phase 6).
+Not built yet: nothing from the original phase plan. Still to do before real customers: the go-live checklist in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) (live-account verification, backups drill, alerts).
 
 ## Repository layout
 
@@ -40,7 +43,8 @@ Not built yet: production hardening, monitoring and deployment automation (Phase
 | `client/` | Next.js 16 (App Router, Cache Components) · TypeScript · Tailwind v4 · shadcn/ui · GSAP · Lenis · R3F |
 | `server/` | Express 5 · TypeScript (ESM) · Prisma 7 · Zod · Pino |
 | `e2e/` | Browser tests: the real API + the real storefront in headless Edge/Chrome, with stand-ins for Supabase and Razorpay |
-| `docs/` | Architecture, API reference, payments, delivery, reports, landing page & motion |
+| `docs/` | Architecture, API reference, payments, delivery, reports, landing page & motion, **deployment** |
+| `.github/` | CI (typecheck, lint, tests, drift/verify, build, boot smoke test, header check, dependency audit, optional e2e), weekly audit, deploy skeleton |
 
 ## Prerequisites
 
@@ -96,7 +100,7 @@ After that, admins manage other roles at **/admin/users**; every change is writt
 ### AWS RDS PostgreSQL
 
 1. PostgreSQL 16 instance → create database `payantra` → security group allows `5432` only from the API server (and your IP while developing).
-2. Set `DATABASE_URL`, `DATABASE_SSL=true`, and `DATABASE_SSL_CA` to the [RDS CA bundle](https://truststore.pki.rds.amazonaws.com/) so certificates are verified.
+2. Set `DATABASE_URL`, `DATABASE_SSL=true` and `DATABASE_SSL_CA_FILE=./certs/global-bundle.pem` (the [RDS CA bundle](https://truststore.pki.rds.amazonaws.com/) ships in `server/certs/`) so the database certificate can be verified. Without it every query fails with `self-signed certificate in certificate chain`.
 3. Apply migrations: `cd server && npx prisma migrate deploy`.
 
 ## Commands
@@ -107,11 +111,13 @@ After that, admins manage other roles at **/admin/users**; every change is writt
 | server | `npm run db:dev` | Local Postgres (PGlite) on :5433 |
 | server | `npm run seed` | Demo catalogue (idempotent; refuses `NODE_ENV=production`) |
 | server | `npm run make-admin -- <email>` | Promote an existing user to ADMIN |
-| server | `npm test` | 330+ tests against a real (in-memory) Postgres engine, with a stand-in for Razorpay's API. Its exit code is trustworthy: non-zero when anything fails |
+| server | `npm test` | 600+ tests (incl. the `security.*` suites) against a real (in-memory) Postgres engine, with a stand-in for Razorpay's API. Its exit code is trustworthy: non-zero when anything fails |
 | server | `npm run test:pg` | The same suite against a **private, throwaway PostgreSQL server** with a real 10-connection pool (needs PostgreSQL binaries installed; never touches an existing server) |
 | server | `npm run db:verify` | Apply all migrations and assert the DB-level guarantees |
 | server | `npm run db:drift` | Fail if `schema.prisma` and the migrations disagree |
-| server | `npm run typecheck` / `build` / `start` | |
+| server | `npm run typecheck` / `lint` / `build` / `start` | |
+| server | `npm run smoke:boot` | After `build`: boots the compiled server in production mode on a private database, checks fail-fast config, health, metrics, headers, JSON logs and (Linux/macOS) SIGTERM draining |
+| server | `npm run audit:prod` | `npm audit` for production dependencies (CI uses `.github/scripts/audit-gate.mjs`, which honours the reviewed allow-list) |
 | client | `npm run dev` / `build` / `lint` | |
 | e2e | `cd e2e && npm install && npm run e2e` | Full-stack browser run (auth, shopper, admin, catalogue, delivery, experience, home, responsive). Pass spec names to run some (`npm run e2e -- shopper admin`); `E2E_DB=postgres` uses a private real PostgreSQL; `BROWSER_PATH` picks the browser; `E2E_SKIP_BUILD=1` reuses the last storefront build while iterating on specs only |
 
@@ -128,13 +134,16 @@ After that, admins manage other roles at **/admin/users**; every change is writt
 - Delivery handover is proven by a six-digit code that is **derived, never stored**; five wrong guesses lock it. Delivery partners see a customer's address and phone only while working that job, never their e-mail or prices.
 - Roles are granted server-side by an admin only (partner approval or the Users screen); applying for anything never changes access.
 - CSV exports neutralise spreadsheet formulas in customer-supplied text, and are never cached.
-- Helmet, strict CORS allow-list, rate limiting, 100 kB body limit, Zod validation on every input, no secrets in logs.
+- Helmet (with a locked-down CSP on the API), strict CORS allow-list, rate limiting, 100 kB body limit, Zod validation on every input; requests containing NUL characters (which PostgreSQL cannot store) are a `400`, not a `500`.
+- **Production refuses to start** with a plain-text database connection (non-local host), a wildcard / non-HTTPS / missing `CORS_ORIGINS`, a placeholder secret, or a stand-in payment endpoint ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)).
+- Logs are JSON with a request id on every line; tokens, cookies, signatures, e-mail addresses, JWTs and card numbers are scrubbed, query strings are never logged, and a 500 response carries only a generic message plus the request id.
+- The storefront sends `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, COOP, and — on https production builds — HSTS and a Content-Security-Policy allow-listing only Razorpay, Supabase and the API (`client/security-headers.ts`).
 - The Next.js proxy redirects unauthenticated visitors early, but is only a convenience — Server Components and the API re-check.
 
 ## Troubleshooting
 
 - **`vitest` / `tsc` / `eslint` "not found" after `npm install`** — your shell has `NODE_ENV=production`, so npm skips devDependencies. Use `npm install --include=dev`.
-- **`prisma generate` says "No command registered"** — you have the Prisma 8 release candidate. This project pins `prisma@7.10.0` to match `@prisma/client`.
+- **`prisma generate` says "No command registered"** — you have the Prisma 8 release candidate. This project pins `prisma@7.10.x` (currently 7.10.1, which also clears the audit findings in 7.10.0) to match `@prisma/client`.
 - **API errors/timeouts under load with the dev DB** — set `DATABASE_POOL_MAX=1` (see above).
 - **The Pay button stays disabled** — the Razorpay script (`checkout.razorpay.com`) did not load (ad-blocker or offline); the page shows a message after the load fails.
 - **Orders stay "Payment pending" after paying** — the webhook is not reaching the API. Check the URL, the secret, and the delivery log in Razorpay's dashboard ([docs/PAYMENTS.md](docs/PAYMENTS.md)). `/payments/verify` normally settles it even without the webhook.
@@ -160,5 +169,6 @@ After that, admins manage other roles at **/admin/users**; every change is writt
 - Support is a simple inbox with one reply per message — not a full ticketing system. The newsletter stores subscribers; sending campaigns needs an e-mail provider.
 - Reports hold up to 1,000 rows on screen and 50,000 in a CSV; narrow the dates for more. Profit and margin are not reported because no product cost is stored.
 - Catalogue search is `ILIKE`-based; add `pg_trgm`/full-text indexes when the catalogue grows past a few thousand products.
+- **Phase 6 limits** ([docs/DEPLOYMENT.md §17](docs/DEPLOYMENT.md#17-known-gaps)): the deploy workflow, `server/Dockerfile`, AWS settings and the Razorpay Content-Security-Policy allow-list are unexecuted skeletons/best-knowledge; rate limits and metrics are per process (add a WAF rule for a global limit); no CAPTCHA or admin MFA screen; one accepted client audit finding (`braces` via the `shadcn` CLI, no fix published).
 - Prisma 7 requires the `@prisma/adapter-pg` driver adapter; the connection URL lives in `prisma.config.ts`.
 - The server is native ESM: relative imports carry a `.js` extension, and the Prisma client is generated with `importFileExtension = "js"`.

@@ -2,11 +2,11 @@ import compression from 'compression';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
-import { pinoHttp } from 'pino-http';
-import { corsOrigins } from './config/env.js';
-import { logger } from './config/logger.js';
+import { corsOrigins, env } from './config/env.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 import { globalLimiter } from './middleware/rateLimit.js';
+import { rejectNullBytes } from './middleware/rejectNullBytes.js';
+import { metricsMiddleware, requestLogging } from './middleware/requestLogging.js';
 import { addressesRouter } from './modules/addresses/addresses.routes.js';
 import { adminRouter } from './modules/admin/admin.routes.js';
 import { cartRouter } from './modules/cart/cart.routes.js';
@@ -35,10 +35,19 @@ export function createApp() {
   const app = express();
 
   // Behind a load balancer (ALB/Render/etc.) — needed for correct client IPs in rate limiting.
-  app.set('trust proxy', 1);
+  app.set('trust proxy', env.TRUST_PROXY_HOPS);
   app.disable('x-powered-by');
 
-  app.use(helmet());
+  // First, so that even a request refused by CORS or the rate limiter has an id and an access-log line.
+  app.use(requestLogging);
+  app.use(metricsMiddleware);
+  // This API only ever returns JSON/CSV: nothing in a response should be loadable, framable or scriptable.
+  app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } } }));
+  // A response carrying someone's data must never be stored by a shared cache. Handlers may override (e.g. the public catalogue).
+  app.use((req, res, next) => {
+    if (req.headers.authorization) res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
   app.use(
     cors({
       origin: corsOrigins,
@@ -46,11 +55,11 @@ export function createApp() {
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
       // A browser hides every response header except a short safe list from a page on another origin. The CSV
       // exports' file names travel in Content-Disposition, so it must be listed or downloads lose their names.
-      exposedHeaders: ['Content-Disposition'],
+      // X-Request-Id lets the storefront show a support reference for a failed call.
+      exposedHeaders: ['Content-Disposition', 'X-Request-Id'],
     }),
   );
   app.use(compression());
-  app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url?.startsWith('/api/v1/health') ?? false } }));
   app.use(globalLimiter);
 
   // The Razorpay webhook is mounted BEFORE express.json(): its signature covers the exact bytes that
@@ -58,6 +67,7 @@ export function createApp() {
   app.use('/api/v1/webhooks/razorpay', razorpayWebhookRouter);
 
   app.use(express.json({ limit: '100kb' }));
+  app.use(rejectNullBytes);
 
   const v1 = express.Router();
   v1.use('/health', healthRouter);
