@@ -1,3 +1,4 @@
+import { REVEAL } from "@/lib/motion";
 import Link from "next/link";
 import { ProductImage } from "@/components/catalogue/product-image";
 import { SpotlightCard } from "@/components/reactbits";
@@ -16,11 +17,11 @@ export async function CategoryTiles() {
   if (categories.length === 0) return null;
 
   return (
-    <section className="cv-auto mx-auto max-w-7xl px-4 py-12 sm:py-16" aria-labelledby="categories-h" data-testid="category-tiles">
+    <section className="mx-auto max-w-7xl px-4 py-12 sm:py-16" aria-labelledby="categories-h" data-testid="category-tiles">
       <SectionHeading id="categories-h" eyebrow="Shop by category" title="Find your silhouette" href="/shop" linkLabel="All products" />
       <ul className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-4">
         {categories.map((c, i) => (
-          <li key={c.id} data-reveal>
+          <li key={c.id} {...REVEAL}>
             <SpotlightCard theme="light" spotlightColor="#c8a45d" intensity={0.35} spotlightSize={260} className="p-0! rounded-2xl!">
               <div className="relative aspect-[4/5] overflow-hidden bg-muted">
                 <ProductImage
@@ -48,10 +49,17 @@ export async function CategoryTiles() {
   );
 }
 
+/** Same padding, heading height and grid as the real section (up to eight tiles), so its arrival moves nothing. */
 export const CategoryTilesSkeleton = () => (
-  <div className="mx-auto grid max-w-7xl grid-cols-2 gap-3 px-4 py-16 sm:gap-5 md:grid-cols-4" aria-hidden>
-    {Array.from({ length: 4 }, (_, i) => (
-      <div key={i} className="aspect-[4/5] rounded-2xl bg-muted" />
-    ))}
+  <div className="mx-auto max-w-7xl px-4 py-12 sm:py-16" aria-hidden>
+    <div className="mb-8">
+      <div className="mb-2 h-4 w-32 rounded bg-muted" />
+      <div className="h-9 w-64 max-w-full rounded bg-muted sm:h-10" />
+    </div>
+    <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-4">
+      {Array.from({ length: 8 }, (_, i) => (
+        <div key={i} className="aspect-[4/5] rounded-2xl bg-muted" />
+      ))}
+    </div>
   </div>
 );

@@ -1,3 +1,4 @@
+import { REVEAL } from "@/lib/motion";
 import Link from "next/link";
 import { Star } from "lucide-react";
 import { getFeaturedReviews } from "@/services/home";
@@ -22,11 +23,11 @@ export async function CustomerReviews() {
   if (reviews.length === 0) return null;
 
   return (
-    <section className="cv-auto mx-auto max-w-7xl px-4 py-12 sm:py-16" aria-labelledby="reviews-h" data-testid="home-reviews">
+    <section className="mx-auto max-w-7xl px-4 py-12 sm:py-16" aria-labelledby="reviews-h" data-testid="home-reviews">
       <SectionHeading id="reviews-h" eyebrow="Kind words" title="Loved by our customers" />
       <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {reviews.map((r) => (
-          <li key={r.id} data-reveal>
+          <li key={r.id} {...REVEAL}>
             <figure className="flex h-full flex-col rounded-2xl border bg-card p-6">
               <Stars value={r.rating} />
               {r.title && <p className="mt-3 font-serif text-lg font-semibold">{r.title}</p>}

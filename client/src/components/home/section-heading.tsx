@@ -1,3 +1,4 @@
+import { REVEAL } from "@/lib/motion";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -21,7 +22,7 @@ export function SectionHeading({
 }) {
   const dark = tone === "dark";
   return (
-    <div data-reveal className={cn("mb-8 flex items-end justify-between gap-4", className)}>
+    <div {...REVEAL} className={cn("mb-8 flex items-end justify-between gap-4", className)}>
       <div>
         {eyebrow && <p className={cn("mb-2 text-xs font-medium uppercase tracking-[0.3em]", dark ? "text-gold" : "text-[#8a6a2b]")}>{eyebrow}</p>}
         <h2 id={id} className={cn("text-3xl font-semibold sm:text-4xl", dark ? "text-primary-foreground" : "text-primary")}>

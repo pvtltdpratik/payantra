@@ -1,3 +1,4 @@
+import { REVEAL } from "@/lib/motion";
 import Link from "next/link";
 import { ProductImage } from "@/components/catalogue/product-image";
 import { getCollections } from "@/services/home";
@@ -12,12 +13,12 @@ export async function SeasonalCollections() {
   if (list.length === 0) return null;
 
   return (
-    <section className="cv-auto bg-secondary/50 py-12 sm:py-16" aria-labelledby="seasonal-h" data-testid="seasonal">
+    <section className="bg-secondary/50 py-12 sm:py-16" aria-labelledby="seasonal-h" data-testid="seasonal">
       <div className="mx-auto max-w-7xl px-4">
         <SectionHeading id="seasonal-h" eyebrow="Festive & seasonal" title="Edits for the season" href="/shop" linkLabel="Shop everything" />
         <ul className="grid gap-4 sm:grid-cols-2">
           {list.map((c, i) => (
-            <li key={c.id} data-reveal className="group relative isolate aspect-[16/10] overflow-hidden rounded-2xl bg-primary text-white">
+            <li key={c.id} {...REVEAL} className="group relative isolate aspect-[16/10] overflow-hidden rounded-2xl bg-primary text-white">
               <ProductImage
                 src={c.imageUrl ?? `/placeholder/${PALETTE[i % PALETTE.length]}?label=${encodeURIComponent(c.name)}&v=${(i % 3) + 1}`}
                 alt=""

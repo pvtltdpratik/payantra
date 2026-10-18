@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { loadedGsapKit, loadGsapCore, whenIdle } from "@/lib/gsap";
+import { loadGsapCore, whenIdle } from "@/lib/gsap";
 import { motionAllowed } from "@/lib/motion";
 
 /**
@@ -23,18 +23,6 @@ export function ScrollReveal() {
     let frame = 0;
     let scanFrame = 0;
     let cancelIdle: (() => void) | null = null;
-    let layoutTimer = 0;
-    const seen = new WeakSet<Element>();
-    // Sections that skip rendering (content-visibility) change height the first time they render; ScrollTrigger
-    // positions measured before that are then stale, so re-measure once per newly rendered section.
-    const onCvState = (e: Event) => {
-      const { skipped } = e as Event & { skipped: boolean };
-      if (skipped || !(e.target instanceof Element) || seen.has(e.target)) return;
-      seen.add(e.target);
-      window.clearTimeout(layoutTimer);
-      layoutTimer = window.setTimeout(() => loadedGsapKit()?.ScrollTrigger.refresh(), 250);
-    };
-    document.addEventListener("contentvisibilityautostatechange", onCvState);
 
     void (async () => {
       // Wait for an idle moment so the animation library never competes with the first paint for bandwidth or CPU.
@@ -95,11 +83,18 @@ export function ScrollReveal() {
       const scan = () => {
         document.querySelectorAll<HTMLElement>("[data-reveal]:not([data-reveal-bound])").forEach((el) => {
           el.setAttribute("data-reveal-bound", "");
+          // On a slow device this code can arrive after the 3.5 s CSS failsafe has already shown the element. Taking
+          // over now would remove that animation and snap the element back to invisible, so leave it as it is.
+          if (getComputedStyle(el).opacity !== "0") {
+            el.classList.add("is-revealed");
+            return;
+          }
           el.classList.add("reveal-active"); // we are in charge now: no failsafe
           io?.observe(el);
         });
       };
       scan();
+      document.documentElement.setAttribute("data-reveal-ready", ""); // "scroll reveals are live" (also used by the e2e specs)
       // Coalesce bursts of DOM changes into one scan per frame.
       mo = new MutationObserver(() => {
         if (scanFrame) return;
@@ -114,8 +109,6 @@ export function ScrollReveal() {
     return () => {
       cancelled = true;
       cancelIdle?.();
-      window.clearTimeout(layoutTimer);
-      document.removeEventListener("contentvisibilityautostatechange", onCvState);
       cancelAnimationFrame(frame);
       cancelAnimationFrame(scanFrame);
       io?.disconnect();

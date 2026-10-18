@@ -1,5 +1,6 @@
 import "server-only";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { api } from "@/lib/api";
 import { createClient } from "@/lib/supabase/server";
 
@@ -25,6 +26,9 @@ export interface Session {
  * Returns null when signed out.
  */
 export async function getSession(): Promise<Session | null> {
+  // A session is per-request. Without this, Next's prefetch renders (partialPrefetching) run the Supabase client's
+  // token-expiry check (Date.now()) and log a "unstable value while prerendering" error for every private page.
+  await connection();
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return null;
 
   const supabase = await createClient();

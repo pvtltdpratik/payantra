@@ -1,3 +1,4 @@
+import { HERO_FADE } from "@/lib/motion";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ArrowRight } from "lucide-react";
@@ -19,7 +20,7 @@ async function HeroExtras() {
   const link = spotlight[0];
 
   return (
-    <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-primary-foreground/80" data-hero-fade>
+    <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-primary-foreground/80" {...HERO_FADE}>
       {promise.length > 0 && <p data-testid="hero-promise">{promise.join("  ·  ")}</p>}
       {link?.linkUrl && (
         <Link href={link.linkUrl} className="inline-flex items-center gap-1.5 font-medium text-gold underline-offset-4 hover:underline" data-testid="hero-spotlight">
@@ -49,7 +50,7 @@ export function Hero() {
       <HeroStage />
 
       <div data-hero-copy className="relative z-10 mx-auto flex min-h-[inherit] max-w-7xl flex-col justify-center px-4 py-20 sm:px-6 lg:py-24">
-        <p data-hero-fade className="text-xs font-medium uppercase tracking-[0.35em]">
+        <p {...HERO_FADE} className="text-xs font-medium uppercase tracking-[0.35em]">
           <ShinyText text="Indian fashion, reimagined" color="#c8a45d" shineColor="#fff3d1" speed={3} trigger="view" />
         </p>
         <h1 id="hero-heading" data-hero-headline className="mt-5 max-w-3xl text-[2.9rem] font-semibold leading-[1.03] text-[#fbf7f0] sm:text-7xl lg:text-[5.4rem]">
@@ -57,10 +58,10 @@ export function Hero() {
           <br />
           worn for today
         </h1>
-        <p data-hero-fade className="mt-6 max-w-xl text-base leading-relaxed text-primary-foreground/85 sm:text-lg">
+        <p {...HERO_FADE} className="mt-6 max-w-xl text-base leading-relaxed text-primary-foreground/85 sm:text-lg">
           Sarees, kurtas, lehengas and Indo-western pieces from skilled weavers and designers across India. Heirloom craft, made for the way you live now.
         </p>
-        <div data-hero-fade className="mt-10 flex flex-wrap items-center gap-3">
+        <div {...HERO_FADE} className="mt-10 flex flex-wrap items-center gap-3">
           <Magnet padding={90} magnetStrength={3} maxOffset={14} wrapperClassName="inline-block">
             <Button size="lg" className="h-12 bg-gold px-7 text-base font-semibold text-[#2a1a17] hover:bg-[#d8b66f]" nativeButton={false} render={<Link href="/shop" />}>
               Explore Collection
@@ -76,7 +77,7 @@ export function Hero() {
             Discover Our Story
           </Button>
         </div>
-        <Suspense fallback={<div className="mt-8 h-6" data-hero-fade />}>
+        <Suspense fallback={<div className="mt-8 h-6" {...HERO_FADE} />}>
           <HeroExtras />
         </Suspense>
       </div>

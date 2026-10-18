@@ -38,6 +38,8 @@ export async function run({ stack, browser, t }) {
    */
   const scrollThrough = async (page) => {
     await page.waitForFunction(() => ['row-new-arrivals', 'newsletter-band'].every((id) => document.querySelector(`[data-testid=${id}]`)), { timeout: 20_000 }).catch(() => undefined);
+    // Reveals go live in an idle moment (up to ~2 s, longer on a slow machine); scrolling past sections before then proves nothing.
+    await page.waitForFunction(() => document.documentElement.hasAttribute('data-reveal-ready') || !document.documentElement.hasAttribute('data-motion'), { timeout: 30_000 }).catch(() => undefined);
     let stable = 0;
     for (let y = 0, last = 0; stable < 3; y += 500) {
       const height = await page.evaluate(() => document.documentElement.scrollHeight);

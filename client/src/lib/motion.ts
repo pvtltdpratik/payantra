@@ -31,6 +31,18 @@ export function motionAllowed(): boolean {
   return typeof document !== "undefined" && document.documentElement.getAttribute("data-motion") === "ok";
 }
 
+/**
+ * Props for any element that animation code decorates after the page loads (adds a class, sets an inline style).
+ *
+ * Sections stream in behind <Suspense> boundaries and hydrate in time slices, possibly AFTER the animation code has
+ * already touched their server-rendered nodes. React would then report "a tree hydrated but some attributes of the
+ * server rendered HTML didn't match" (an error overlay in development, and a node it refuses to patch). The
+ * decoration is intentional, so tell React so: `suppressHydrationWarning` silences exactly the attribute mismatch on
+ * this one element and nothing else. Spread these instead of writing the data attribute by hand.
+ */
+export const REVEAL = { "data-reveal": true, suppressHydrationWarning: true } as const;
+export const HERO_FADE = { "data-hero-fade": true, suppressHydrationWarning: true } as const;
+
 /** Can this browser create a WebGL context at all? (Checked on a throw-away canvas, then released.) */
 export function webglAvailable(): boolean {
   try {

@@ -1,4 +1,4 @@
-import { clickText, fill, goto, login, newPage, settle, sleep, text } from '../lib/browser.mjs';
+import { clickText, fill, goto, hydrated, login, newPage, settle, sleep, text } from '../lib/browser.mjs';
 
 export async function run({ stack, browser, t }) {
   const mailbox = async (email, type) => (await (await fetch(`${stack.supabase.url}/__mock/mailbox?email=${encodeURIComponent(email)}`)).json()).filter((m) => m.type === type).at(-1);
@@ -51,6 +51,8 @@ export async function run({ stack, browser, t }) {
   {
     const page = await newPage(browser, stack);
     await goto(page, stack, '/auth/login');
+    await hydrated(page, '#email'); // typing before React attaches is wiped by hydration (worse on a slow machine)
+    await hydrated(page, '#password');
     await page.type('#email', stack.accounts.alice.email);
     await page.type('#password', 'wrong-password');
     await page.click('button[type=submit]');
@@ -71,6 +73,8 @@ export async function run({ stack, browser, t }) {
     await settle(page);
     await goto(page, stack, '/wishlist');
     t.check('a protected page remembers where you were going', new URL(page.url()).searchParams.get('next') === '/wishlist', page.url());
+    await hydrated(page, '#email');
+    await hydrated(page, '#password');
     await page.type('#email', stack.accounts.alice.email);
     await page.type('#password', stack.accounts.alice.password);
     await Promise.all([page.waitForFunction(() => location.pathname === '/wishlist', { timeout: 15_000 }), page.click('button[type=submit]')]);

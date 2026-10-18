@@ -1,3 +1,4 @@
+import { REVEAL } from "@/lib/motion";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { getCategoryTreeSafe } from "@/services/catalogue";
@@ -12,14 +13,14 @@ const PANELS = [
 export async function GenderPanels() {
   const tree = await getCategoryTreeSafe();
   return (
-    <section className="cv-auto mx-auto max-w-7xl px-4 py-12 sm:py-16" aria-labelledby="collections-h" data-testid="gender-panels">
+    <section className="mx-auto max-w-7xl px-4 py-12 sm:py-16" aria-labelledby="collections-h" data-testid="gender-panels">
       <SectionHeading id="collections-h" eyebrow="Collections" title="For her, for him" />
       <div className="grid gap-4 md:grid-cols-2">
         {PANELS.map((p) => {
           const dark = p.gender === "WOMEN";
           const cats = tree.filter((c) => c.gender === p.gender && c.productCount > 0).slice(0, 5);
           return (
-            <article key={p.gender} data-reveal className={`woven relative isolate overflow-hidden rounded-3xl p-8 sm:p-12 ${p.tone}`}>
+            <article key={p.gender} {...REVEAL} className={`woven relative isolate overflow-hidden rounded-3xl p-8 sm:p-12 ${p.tone}`}>
               <div aria-hidden className="absolute -right-16 -top-16 size-64 rounded-full border border-gold/50" />
               <div aria-hidden className="absolute -right-6 -top-6 size-64 rounded-full border border-gold/30" />
               <h3 className="font-serif text-4xl font-semibold sm:text-5xl">

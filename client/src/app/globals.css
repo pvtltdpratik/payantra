@@ -189,10 +189,6 @@ html:not([data-motion="ok"]) .silk-drift { animation: none; }
 }
 
 /* A subtle woven texture for editorial panels: two crossing hairline weaves, no image to download. */
-/* Below-the-fold sections skip layout and paint until they are about to scroll into view; the browser remembers each
-   one's real height after the first time, so nothing jumps afterwards. */
-.cv-auto { content-visibility: auto; contain-intrinsic-size: auto 700px; }
-
 .woven {
   background-image:
     repeating-linear-gradient(45deg, rgb(255 255 255 / 0.04) 0 1px, transparent 1px 8px),

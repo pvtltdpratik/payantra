@@ -1,3 +1,4 @@
+import { REVEAL } from "@/lib/motion";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -6,7 +7,7 @@ export function BrandStory() {
   return (
     <section id="story" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-16 sm:py-24" aria-labelledby="story-h" data-testid="brand-story">
       <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-20">
-        <div data-reveal>
+        <div {...REVEAL}>
           <p className="mb-3 text-xs font-medium uppercase tracking-[0.3em] text-[#8a6a2b]">Our story</p>
           <h2 id="story-h" className="text-4xl font-semibold leading-tight text-primary sm:text-5xl">
             Payantra means <span className="text-[#8a6a2b]">a journey</span>
@@ -24,7 +25,7 @@ export function BrandStory() {
           </Button>
         </div>
 
-        <dl className="grid grid-cols-2 gap-4" data-reveal>
+        <dl className="grid grid-cols-2 gap-4" {...REVEAL}>
           {[
             ["Honest descriptions", "Fabric, fit and care, spelled out on every product page."],
             ["Considered sourcing", "Pieces chosen for the craft and the people behind them."],

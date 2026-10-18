@@ -1,3 +1,4 @@
+import { REVEAL } from "@/lib/motion";
 import { CreditCard, PackageCheck, RotateCcw, Truck } from "lucide-react";
 import { getPublicSettings } from "@/services/home";
 import { formatINR } from "@/lib/utils";
@@ -23,7 +24,7 @@ export async function TrustBar() {
     <section aria-label="Why shop with Payantra" className="border-b bg-secondary/60" data-testid="trust-bar">
       <ul className="mx-auto grid max-w-7xl grid-cols-2 gap-x-4 gap-y-5 px-4 py-6 lg:grid-cols-4">
         {items.map(({ Icon, title, note }) => (
-          <li key={title} className="flex items-start gap-3" data-reveal>
+          <li key={title} className="flex items-start gap-3" {...REVEAL}>
             <Icon aria-hidden className="mt-0.5 size-5 shrink-0 text-primary" />
             <div>
               <p className="text-sm font-semibold">{title}</p>
@@ -36,5 +37,28 @@ export async function TrustBar() {
   );
 }
 
-/** Same height as the real bar, so streaming it in causes no layout shift. */
-export const TrustBarSkeleton = () => <div className="h-[5.5rem] border-b bg-secondary/60 lg:h-[4.5rem]" aria-hidden />;
+/**
+ * Same box as the real bar, so streaming it in causes no layout shift. It renders the same four items with
+ * placeholder words of a similar length, hidden with `invisible` (which keeps their size), so the text wraps and the
+ * bar grows at exactly the same widths as the real one (about 193 px on a phone, 85 px on a desktop).
+ */
+export const TrustBarSkeleton = () => (
+  <div className="border-b bg-secondary/60" aria-hidden>
+    <ul className="invisible mx-auto grid max-w-7xl grid-cols-2 gap-x-4 gap-y-5 px-4 py-6 lg:grid-cols-4">
+      {[
+        ["Free delivery over ₹2,999", "₹99 below that, across India"],
+        ["7-day returns", "Return or replace, hassle-free"],
+        ["Secure payments", "UPI, cards and net banking via Razorpay"],
+        ["Cash on delivery", "Pay at your door, up to ₹20,000"],
+      ].map(([title, note]) => (
+        <li key={title} className="flex items-start gap-3">
+          <span className="mt-0.5 size-5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold">{title}</p>
+            <p className="text-xs text-muted-foreground">{note}</p>
+          </div>
+        </li>
+      ))}
+    </ul>
+  </div>
+);

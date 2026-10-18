@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { loadGsap, whenIdle } from "@/lib/gsap";
-import { FINE_POINTER, motionAllowed, WIDE } from "@/lib/motion";
+import { FINE_POINTER, motionAllowed, WIDE, REVEAL } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 const CHAPTERS = [
@@ -87,7 +87,7 @@ export function CraftStory() {
             <div aria-hidden className="relative hidden w-px bg-white/15 lg:block">
               <div data-craft-progress className={cn("absolute inset-x-0 top-0 h-full origin-top bg-gold", !live && "scale-y-0")} />
             </div>
-            <div data-reveal>
+            <div {...REVEAL}>
               <p className="mb-3 text-xs font-medium uppercase tracking-[0.3em] text-gold">Craftsmanship</p>
               <h2 id="craft-h" className="text-4xl font-semibold leading-tight sm:text-5xl">
                 Made by hand,
@@ -106,7 +106,7 @@ export function CraftStory() {
             <li
               key={c.kicker}
               data-chapter
-              data-reveal
+              {...REVEAL}
               aria-current={live && active === i ? "step" : undefined}
               className={cn("rounded-2xl border border-white/10 p-6 transition-[opacity,background-color] duration-500 sm:p-8", live && active !== i && "opacity-55", live && active === i && "bg-white/5")}
             >
