@@ -220,6 +220,21 @@ It starts `node dist/server.js` directly so SIGTERM reaches the process. *(Not y
 `SHUTDOWN_DRAIN_SECONDS` → stops accepting, closes idle keep-alive sockets, lets in-flight requests finish → closes the database pool → exits 0. If requests are still
 running at `SHUTDOWN_TIMEOUT_SECONDS` it exits 1. A crash (`uncaughtException`) is reported, skips the drain and exits 1 so ECS replaces the task.
 
+### 7a. Alternative: one EC2 server with pm2
+
+Fine for a first launch or staging; you give up the rolling, multi-AZ deploys of the ECS setup (a restart means a second or two of downtime). Node 22, run from `server/`:
+
+1. `npm ci --include=dev` (the TypeScript compiler is a dev dependency, so do not use `--omit=dev` here) then `npm run build`. On a 1 GB instance `tsc` can run out of memory: add swap, or build elsewhere and copy `dist/`.
+2. Fill in `.env` for production (section 6). With `NODE_ENV=production` the API refuses to start on unsafe values and names each one. Set `TRUST_PROXY_HOPS=1` behind nginx or a load balancer, `0` if clients connect directly.
+3. If the database is new or the schema changed: `npx prisma migrate deploy` (section 9).
+4. Start with the committed `server/ecosystem.config.cjs`: `pm2 start ecosystem.config.cjs`, then `pm2 save` and `pm2 startup` (run the `sudo` command it prints) so it survives a reboot. Also `pm2 install pm2-logrotate`.
+5. Check: `curl -s http://localhost:4000/api/v1/health/ready`, and `pm2 logs payantra-api` shows `Payantra API listening`.
+6. Deploy updates with `git pull && npm ci --include=dev && npm run build && npx prisma migrate deploy && pm2 reload payantra-api`. After editing `.env`, run `pm2 restart payantra-api` (it is only read at start).
+
+Keep to **one instance** (the config sets it): rate-limit counters and the order-expiry sweep live inside the process, so pm2 cluster mode would split the limits and multiply the sweeps.
+Do not start it with `npm start`: npm swallows the stop signal, so the graceful shutdown above never runs. Put nginx or a load balancer in front for HTTPS, open only 80/443 in the security group (not 4000), and build the storefront
+with `NEXT_PUBLIC_API_URL` set to the API's public https address.
+
 ## 8. Hosting the storefront
 
 - **Vercel**: create the project from `client/`, set the variables above for *Production* and *Preview*, add the domain. Build command `npm run build`.
