@@ -1,18 +1,28 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, Inter } from "next/font/google";
+import localFont from "next/font/local";
+import { MOTION_BOOT_SCRIPT } from "@/lib/motion";
 import "./globals.css";
 
-const serif = Cormorant_Garamond({
+/**
+ * Self-hosted, Latin only (both families are SIL OFL 1.1). With next/font/google every unicode subset is declared,
+ * and the rupee sign (U+20B9) sits in Inter's "latin-ext" file, so the browser downloaded an extra 85 kB just to
+ * draw "₹" in the first screen. Declaring only Latin means the rupee sign falls back to the device's own font for
+ * free, and the two files total 86 kB. Both are variable fonts: one file covers every weight.
+ */
+const serif = localFont({
+  src: "./fonts/cormorant-garamond-latin.woff2",
   variable: "--font-cormorant",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: "300 700",
   display: "swap",
+  adjustFontFallback: "Times New Roman",
 });
 
-const sans = Inter({
+const sans = localFont({
+  src: "./fonts/inter-latin.woff2",
   variable: "--font-inter",
-  subsets: ["latin"],
+  weight: "100 900",
   display: "swap",
+  adjustFontFallback: "Arial",
 });
 
 export const metadata: Metadata = {
@@ -28,7 +38,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${serif.variable} ${sans.variable} h-full`}>
+    // suppressHydrationWarning: the boot script below sets data-motion / data-hero on <html> before React hydrates.
+    <html lang="en" className={`${serif.variable} ${sans.variable} h-full`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: MOTION_BOOT_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

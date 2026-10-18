@@ -10,7 +10,12 @@ import { Input } from "@/components/ui/input";
 import { authedApi } from "@/lib/client-api";
 import type { AdminBanner, BannerPlacement } from "@/types/analytics";
 
-const PLACEMENT_LABEL: Record<BannerPlacement, string> = { HOME_HERO: "Home page — hero", HOME_STRIP: "Home page — strip", CATEGORY: "Category pages" };
+const PLACEMENT_LABEL: Record<BannerPlacement, string> = {
+  ANNOUNCEMENT: "Announcement bar (above the header)",
+  HOME_HERO: "Home page — hero spotlight link",
+  HOME_STRIP: "Home page — limited-time offers",
+  CATEGORY: "Category pages",
+};
 const input = "h-10 font-normal";
 const label = "space-y-1.5 text-sm font-medium";
 

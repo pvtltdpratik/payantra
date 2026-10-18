@@ -65,6 +65,11 @@ export async function run({ stack, browser, t }) {
     ['product', `/product/${slug}`],
     ['sign in', '/auth/login'],
     ['register', '/auth/register'],
+    ['shipping policy', '/shipping'],
+    ['returns policy', '/returns'],
+    ['privacy policy', '/privacy'],
+    ['terms', '/terms'],
+    ['contact', '/contact'],
   ]);
   // The navigation must be reachable without a desktop-width header.
   await goto(visitor, stack, '/');

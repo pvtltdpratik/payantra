@@ -96,7 +96,7 @@ export interface AdminSupportRow extends SupportRequestRow {
   orderNumber: string | null;
 }
 
-export type BannerPlacement = "HOME_HERO" | "HOME_STRIP" | "CATEGORY";
+export type BannerPlacement = "ANNOUNCEMENT" | "HOME_HERO" | "HOME_STRIP" | "CATEGORY";
 
 export interface AdminBanner {
   id: string;

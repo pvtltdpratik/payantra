@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 
-/** Footer sign-up. Works for anyone; the server answers identically whether or not the address was already subscribed. */
-export function NewsletterForm() {
+/**
+ * Newsletter sign-up. Works for anyone; the server answers identically whether or not the address was already
+ * subscribed. The page can hold two of them (the home band and the footer), so each takes its own input id.
+ */
+export function NewsletterForm({ id = "newsletter-email", label = "New arrivals and festive edits, once in a while." }: { id?: string; label?: string }) {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -36,12 +39,12 @@ export function NewsletterForm() {
   }
   return (
     <form onSubmit={submit} noValidate aria-label="Newsletter" className="space-y-2">
-      <label htmlFor="newsletter-email" className="text-sm text-primary-foreground/80">
-        New arrivals and festive edits, once in a while.
+      <label htmlFor={id} className="text-sm text-primary-foreground/80">
+        {label}
       </label>
       <div className="flex gap-2">
         <input
-          id="newsletter-email"
+          id={id}
           type="email"
           autoComplete="email"
           value={email}

@@ -2,12 +2,14 @@
 
 Premium Indian fashion e-commerce: Next.js storefront + Express API + PostgreSQL (AWS RDS) + Supabase Auth + Razorpay.
 
-> **Status: Phase 4 — Dashboards.** Phases 1–4 are complete and tested: foundation, authentication & catalogue, commerce and payments, and now the
-> three dashboards — the customer account, the delivery-partner app and the admin control panel with reports. The 3D landing page (Phase 5) and
-> production hardening (Phase 6) are next.
+> **Status: Phase 5 — Premium UI.** Phases 1–5 are built and tested: foundation, authentication & catalogue, commerce and payments, the
+> three dashboards, and now the landing page with its motion layer (GSAP, Lenis, ReactBits, a lazy 3D hero with static fallbacks). Production
+> hardening (Phase 6) is next. **Open item:** the Lighthouse ≥ 85 mobile target was reached (about 80) only on a fast machine and is not yet
+> confirmed for the final build; see [docs/MOTION.md](docs/MOTION.md).
 > See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the plan and ER diagram, [docs/API.md](docs/API.md) for the endpoints,
 > [docs/PAYMENTS.md](docs/PAYMENTS.md) for how payments, stock and refunds stay correct (and the Razorpay sandbox checklist),
-> [docs/DELIVERY.md](docs/DELIVERY.md) for delivery partners and the delivery code, and [docs/REPORTS.md](docs/REPORTS.md) for how every dashboard number is defined.
+> [docs/DELIVERY.md](docs/DELIVERY.md) for delivery partners and the delivery code, [docs/REPORTS.md](docs/REPORTS.md) for how every dashboard number is defined,
+> and [docs/MOTION.md](docs/MOTION.md) for the landing page, the animation layer and the performance notes.
 
 ## What works today
 
@@ -25,9 +27,11 @@ Premium Indian fashion e-commerce: Next.js storefront + Express API + PostgreSQL
 | Delivery partners | Apply → admin approval → go online → accept/decline → pick up → out for delivery → **deliver with the customer's 6-digit code** (or report a failed attempt, retry, or return to origin); privacy-limited customer details, cash-on-delivery amounts, earnings and 14-day performance. Mobile-first at `/delivery` |
 | Admin dashboard | Live overview (net revenue, orders, customers, partners, low stock, pending work, recent transactions, sales chart, change vs the previous period); **reports** for sales, products, inventory, payments & refunds and delivery with **CSV export**; customers; delivery-partner approval and assignment; support inbox; review moderation; banners; newsletter; audit log |
 | Customer account | Profile, addresses, orders with live delivery tracking, **reviews** (verified purchases only), **recently viewed**, notifications (header bell), help & support, password change and "sign out other devices", newsletter sign-up |
+| Landing page | Hero with a lazy React Three Fiber silk-and-jewellery scene (capable desktops only; static artwork otherwise, with a pause control), GSAP reveals and parallax, Lenis smooth scroll (mouse devices), ReactBits effects; sections for categories, featured/new/best sellers, collections, craftsmanship, seasonal edits, admin-scheduled offers and announcement bar, real customer reviews, brand story, newsletter and a product-photo gallery. Everything reads live data and hides when empty; works with reduced motion, without JavaScript, and on phones without any 3D |
+| Policies & contact | Shipping, returns (quoting the live store settings), privacy, terms and contact pages; footer contact details and social links come from `NEXT_PUBLIC_*` variables and are hidden when unset |
 | Data | 33-table schema, 6 migrations, DB-level integrity (stock, prices, totals, refunds, uniqueness), seed script with 33 products |
 
-Not built yet: the 3D landing page and animation layer (Phase 5); production hardening, monitoring and deployment automation (Phase 6).
+Not built yet: production hardening, monitoring and deployment automation (Phase 6).
 
 ## Repository layout
 
@@ -36,7 +40,7 @@ Not built yet: the 3D landing page and animation layer (Phase 5); production har
 | `client/` | Next.js 16 (App Router, Cache Components) · TypeScript · Tailwind v4 · shadcn/ui · GSAP · Lenis · R3F |
 | `server/` | Express 5 · TypeScript (ESM) · Prisma 7 · Zod · Pino |
 | `e2e/` | Browser tests: the real API + the real storefront in headless Edge/Chrome, with stand-ins for Supabase and Razorpay |
-| `docs/` | Architecture, API reference, payments guide |
+| `docs/` | Architecture, API reference, payments, delivery, reports, landing page & motion |
 
 ## Prerequisites
 
@@ -109,7 +113,7 @@ After that, admins manage other roles at **/admin/users**; every change is writt
 | server | `npm run db:drift` | Fail if `schema.prisma` and the migrations disagree |
 | server | `npm run typecheck` / `build` / `start` | |
 | client | `npm run dev` / `build` / `lint` | |
-| e2e | `cd e2e && npm install && npm run e2e` | Full-stack browser run (auth, shopper, admin, catalogue, delivery, experience, responsive). Pass spec names to run some (`npm run e2e -- shopper admin`); `E2E_DB=postgres` uses a private real PostgreSQL; `BROWSER_PATH` picks the browser; `E2E_SKIP_BUILD=1` reuses the last storefront build while iterating on specs only |
+| e2e | `cd e2e && npm install && npm run e2e` | Full-stack browser run (auth, shopper, admin, catalogue, delivery, experience, home, responsive). Pass spec names to run some (`npm run e2e -- shopper admin`); `E2E_DB=postgres` uses a private real PostgreSQL; `BROWSER_PATH` picks the browser; `E2E_SKIP_BUILD=1` reuses the last storefront build while iterating on specs only |
 
 ## Security model (summary)
 
@@ -151,6 +155,7 @@ After that, admins manage other roles at **/admin/users**; every change is writt
 - The invoice shows GST per line but has no seller GSTIN/address or CGST/SGST/IGST split yet — add a seller setting before issuing invoices legally.
 - Cash on Delivery refunds are handled outside the system (the admin UI says so); only online payments are refunded through Razorpay.
 - Collections have an admin API but no admin screen yet.
+- Product, category and collection images on the landing page are generated placeholders until real photography is uploaded; the style gallery uses product photos, not a live Instagram feed. The privacy and terms pages are plain-language templates, not legal advice.
 - Delivery assignment is manual (an admin chooses the partner); there is no automatic dispatch or live location. Partner payouts are shown as earnings but settled outside Payantra ([docs/DELIVERY.md](docs/DELIVERY.md)).
 - Support is a simple inbox with one reply per message — not a full ticketing system. The newsletter stores subscribers; sending campaigns needs an e-mail provider.
 - Reports hold up to 1,000 rows on screen and 50,000 in a CSV; narrow the dates for more. Profit and margin are not reported because no product cost is stored.

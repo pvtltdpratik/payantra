@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Heart } from "lucide-react";
 import { authedApi } from "@/lib/client-api";
-import { createClient } from "@/lib/supabase/client";
+import { getBrowserSession, watchAuth } from "@/lib/supabase/lazy";
 import { cn } from "@/lib/utils";
 
 /**
@@ -16,8 +16,7 @@ const listeners = new Set<() => void>();
 let ids = new Set<string>();
 
 async function loadIds(): Promise<Set<string>> {
-  const { data } = await createClient().auth.getSession();
-  if (!data.session) return new Set();
+  if (!(await getBrowserSession())) return new Set();
   try {
     const res = await authedApi<string[]>("/wishlist/ids");
     return new Set(res.data);
@@ -32,13 +31,11 @@ function ensureLoaded() {
   if (!watchingAuth) {
     watchingAuth = true;
     // A different person may sign in on the same tab: never show the previous person's hearts.
-    createClient().auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
-        idsPromise = null;
-        ids = new Set();
-        listeners.forEach((l) => l());
-        void ensureLoaded();
-      }
+    watchAuth(() => {
+      idsPromise = null;
+      ids = new Set();
+      listeners.forEach((l) => l());
+      void ensureLoaded();
     });
   }
   idsPromise ??= loadIds().then((s) => {
@@ -73,8 +70,7 @@ export function WishlistButton({ productId, productName, className }: { productI
     e.stopPropagation();
     if (busy) return;
 
-    const { data } = await createClient().auth.getSession();
-    if (!data.session) {
+    if (!(await getBrowserSession())) {
       router.push(`/auth/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }

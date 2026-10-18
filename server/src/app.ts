@@ -18,6 +18,7 @@ import { deliveryRouter } from './modules/delivery/delivery.routes.js';
 import { marketingPublicRouter } from './modules/marketing/marketing.routes.js';
 import { recentlyViewedRouter } from './modules/recently-viewed/recently-viewed.routes.js';
 import { reviewsRouter } from './modules/reviews/reviews.routes.js';
+import { publicSettingsRouter } from './modules/settings/settings.routes.js';
 import { supportRouter } from './modules/support/support.routes.js';
 import { couponsRouter } from './modules/coupons/coupons.routes.js';
 import { wishlistRouter } from './modules/wishlist/wishlist.routes.js';
@@ -75,6 +76,7 @@ export function createApp() {
   v1.use('/delivery', deliveryRouter);
   v1.use('/support', supportRouter);
   v1.use('/reviews', reviewsRouter);
+  v1.use('/settings', publicSettingsRouter);
   v1.use('/recently-viewed', recentlyViewedRouter);
   v1.use(marketingPublicRouter); // /banners, /newsletter/subscribe
   v1.use('/notifications', notificationsRouter);

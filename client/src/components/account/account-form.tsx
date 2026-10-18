@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api";
 import { authedApi } from "@/lib/client-api";
 import { createClient } from "@/lib/supabase/client";
+import { announceAuthChange } from "@/lib/supabase/lazy";
 
 const schema = z.object({
   fullName: z.string().trim().min(2, "Enter your full name").max(100),
@@ -52,6 +53,7 @@ export function AccountForm({ me }: { me: { fullName: string | null; phone: stri
 
   async function signOut() {
     await createClient().auth.signOut();
+    announceAuthChange();
     router.push("/");
     router.refresh();
   }

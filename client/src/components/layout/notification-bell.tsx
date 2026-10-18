@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
 import { onNotificationsChanged } from "@/lib/cart-events";
 import { authedApi } from "@/lib/client-api";
-import { createClient } from "@/lib/supabase/client";
+import { getBrowserSession, watchAuth } from "@/lib/supabase/lazy";
 
 /** A bell with the number of unread notifications. Signed-out visitors see nothing at all. */
 export function NotificationBell() {
@@ -15,8 +15,8 @@ export function NotificationBell() {
     let cancelled = false;
     async function refresh() {
       try {
-        const { data } = await createClient().auth.getSession();
-        if (!data.session) return !cancelled && setUnread(null);
+        const session = await getBrowserSession();
+        if (!session) return !cancelled && setUnread(null);
         const res = await authedApi<unknown[]>("/notifications", { query: { pageSize: 1 } });
         if (!cancelled) setUnread(Number((res.meta as { unread?: number } | undefined)?.unread ?? 0));
       } catch {
@@ -27,12 +27,12 @@ export function NotificationBell() {
     const off = onNotificationsChanged(() => void refresh());
     // New order and delivery updates arrive while the tab is open; check now and then, but only while it is visible.
     const timer = window.setInterval(() => document.visibilityState === "visible" && void refresh(), 60_000);
-    const auth = createClient().auth.onAuthStateChange(() => void refresh());
+    const stopAuth = watchAuth(() => void refresh());
     return () => {
       cancelled = true;
       off();
       window.clearInterval(timer);
-      auth.data.subscription.unsubscribe();
+      stopAuth();
     };
   }, []);
 

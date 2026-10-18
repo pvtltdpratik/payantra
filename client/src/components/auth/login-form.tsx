@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { loginSchema, type LoginInput } from "@/lib/schemas/auth";
 import { isNetworkAuthError } from "@/lib/auth-errors";
 import { createClient } from "@/lib/supabase/client";
+import { announceAuthChange } from "@/lib/supabase/lazy";
 import { GoogleButton } from "./google-button";
 
 export function LoginForm({ next, notice }: { next: string; notice?: string }) {
@@ -41,6 +42,7 @@ export function LoginForm({ next, notice }: { next: string; notice?: string }) {
         }
         return;
       }
+      announceAuthChange(); // the header bag/bell and wishlist hearts only watch Supabase once a session exists
       router.push(next);
       router.refresh(); // re-render server components with the new session
     } catch {

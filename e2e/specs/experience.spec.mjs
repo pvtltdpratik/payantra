@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { deliverOrder, eventually, findStockedProduct, placeOrder } from '../lib/flows.mjs';
-import { artifacts, clickText, fill, fillLabel, goto, login, newPage, settle, sleep, text } from '../lib/browser.mjs';
+import { artifacts, clickText, fill, fillLabel, goto, hydrated, login, newPage, settle, sleep, text } from '../lib/browser.mjs';
 
 const toPaise = (s) => Math.round(parseFloat(String(s).replace(/[^0-9.]/g, '')) * 100);
 
@@ -242,13 +242,14 @@ export async function run({ stack, browser, t }) {
     t.check('and deleting removes it for good', (await api('admin', 'GET', '/admin/banners')).body.data.length === 0);
 
     await goto(visitor, stack, '/');
+    await hydrated(visitor, '#newsletter-email');
     await visitor.type('#newsletter-email', 'not-an-email');
-    await clickText(visitor, /^Subscribe$/);
+    await clickText(visitor, /^Subscribe$/, { selector: 'footer button' }); // the home page also has a newsletter band
     t.check('the footer sign-up rejects an invalid address', /valid email/i.test(await text(visitor, 'footer')));
     await fill(visitor, '#newsletter-email', 'reader@example.test');
-    await clickText(visitor, /^Subscribe$/);
+    await clickText(visitor, /^Subscribe$/, { selector: 'footer button' });
     await t.attempt('and welcomes a valid one', async () => {
-      await visitor.waitForFunction(() => document.querySelector('[data-testid=newsletter-done]'), { timeout: 12_000 });
+      await visitor.waitForFunction(() => document.querySelector('footer [data-testid=newsletter-done]'), { timeout: 12_000 });
     });
     await goto(admin, stack, '/admin/newsletter');
     t.check('the admin sees the new subscriber and the count', /reader@example\.test/.test(await text(admin, 'main')) && /1 active subscriber/.test(await text(admin, '[data-testid=subscriber-count]')));

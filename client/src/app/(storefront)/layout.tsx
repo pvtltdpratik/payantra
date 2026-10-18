@@ -1,5 +1,9 @@
+import { Suspense } from "react";
+import { AnnouncementBar, AnnouncementFallback } from "@/components/home/announcement-bar";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
+import { ScrollReveal } from "@/components/motion/scroll-reveal";
+import { SmoothScroll } from "@/components/motion/smooth-scroll";
 
 export default function StorefrontLayout({ children }: LayoutProps<"/">) {
   return (
@@ -10,14 +14,16 @@ export default function StorefrontLayout({ children }: LayoutProps<"/">) {
       >
         Skip to content
       </a>
-      <p className="bg-primary px-4 py-2 text-center text-xs tracking-wide text-primary-foreground print:hidden">
-        Handcrafted Indian fashion, delivered across India
-      </p>
+      <Suspense fallback={<AnnouncementFallback />}>
+        <AnnouncementBar />
+      </Suspense>
       <SiteHeader />
       <main id="main" className="flex-1">
         {children}
       </main>
       <SiteFooter />
+      <SmoothScroll />
+      <ScrollReveal />
     </>
   );
 }

@@ -135,3 +135,70 @@
 html.lenis, html.lenis body { height: auto; }
 .lenis.lenis-smooth { scroll-behavior: auto !important; }
 .lenis.lenis-stopped { overflow: hidden; }
+/* Scrollable regions inside the page (menus, dialogs, drawers) keep their own wheel scrolling. */
+.lenis [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-scrolling iframe { pointer-events: none; }
+
+/*
+ * Reveal-on-scroll.
+ *
+ * Content is hidden ONLY when the pre-paint script has confirmed motion is allowed (html[data-motion="ok"]), so with
+ * reduced motion, with JavaScript off, or before the script has run, everything is simply visible.
+ * The timed `reveal-failsafe` animation shows anything still hidden after 3.5 s, so a script that fails to start can
+ * never leave a section invisible. GSAP takes the failsafe over by adding `.reveal-active` before it animates.
+ */
+html[data-motion="ok"] [data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+  animation: reveal-failsafe 0.01s 3.5s forwards;
+}
+html[data-motion="ok"] [data-reveal].reveal-active { animation: none; }
+html[data-motion="ok"] [data-reveal].is-revealed { opacity: 1; transform: none; }
+@keyframes reveal-failsafe {
+  to { opacity: 1; transform: none; }
+}
+
+/*
+ * Hero entrance (desktop only: html[data-hero="intro"]). The headline's words slide up out of a mask; everything
+ * else fades in. Same failsafe as above. On phones none of this applies, so the headline paints immediately.
+ */
+html[data-hero="intro"] [data-hero-fade] {
+  opacity: 0;
+  animation: reveal-failsafe 0.01s 3.5s forwards;
+}
+html[data-hero="intro"] [data-hero-fade].reveal-active { animation: none; }
+html[data-hero="intro"] [data-hero-fade].is-revealed { opacity: 1; }
+html[data-hero="intro"] [data-hero-headline] { animation: hero-headline-failsafe 0.01s 3.5s forwards; opacity: 0; }
+html[data-hero="intro"] [data-hero-headline].reveal-active { animation: none; opacity: 1; }
+@keyframes hero-headline-failsafe { to { opacity: 1; } }
+.hero-mask { display: block; overflow: hidden; padding-bottom: 0.08em; margin-bottom: -0.08em; }
+
+/* The static hero artwork drifts very slowly; off for anyone who prefers no motion. */
+@keyframes silk-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.02); }
+  50% { transform: translate3d(-1.2%, 1.2%, 0) scale(1.05); }
+}
+.silk-drift { animation: silk-drift 22s ease-in-out infinite; transform-origin: 50% 50%; will-change: transform; }
+html:not([data-motion="ok"]) .silk-drift { animation: none; }
+
+/* Soft ivory sweep for section transitions (a decorative divider between editorial blocks). */
+.zari-rule {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity: 0.7;
+}
+
+/* A subtle woven texture for editorial panels: two crossing hairline weaves, no image to download. */
+/* Below-the-fold sections skip layout and paint until they are about to scroll into view; the browser remembers each
+   one's real height after the first time, so nothing jumps afterwards. */
+.cv-auto { content-visibility: auto; contain-intrinsic-size: auto 700px; }
+
+.woven {
+  background-image:
+    repeating-linear-gradient(45deg, rgb(255 255 255 / 0.04) 0 1px, transparent 1px 8px),
+    repeating-linear-gradient(-45deg, rgb(0 0 0 / 0.06) 0 1px, transparent 1px 8px);
+}
+
+/* Page transition: the new page eases in. (Transform-free, so it can never shift layout or trap fixed children.) */
+@keyframes page-in { from { opacity: 0.001; } to { opacity: 1; } }
+html[data-motion="ok"] .page-in { animation: page-in 0.32s ease-out both; }

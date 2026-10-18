@@ -207,6 +207,57 @@ describe('what the public sees', () => {
   });
 });
 
+describe('featured reviews (the home page)', () => {
+  const LONG = 'The weave is beautiful and it arrived beautifully packed.';
+  const featured = async (qs = '') => (await request(app).get(`/api/v1/reviews/featured${qs}`)).body.data as any[];
+
+  it('is empty — never invented — until real reviews exist', async () => {
+    expect(await featured()).toEqual([]);
+  });
+
+  it('shows only visible, positive reviews with substance, one per product, newest first, with masked names', async () => {
+    const mk = async (name: string) => w.sellable({ onHand: 30, name });
+    const [a, b, c, d, e, f] = [await mk('Saree A'), await mk('Saree B'), await mk('Saree C'), await mk('Saree D'), await mk('Saree E'), await mk('Saree F')];
+
+    const ra1 = (await review(alice, await delivered(alice, a), { rating: 5, body: 'First thoughts on this saree, quite lovely.' })).body.data;
+    await sleepMs(15);
+    await review(bob, await delivered(bob, b), { rating: 4, title: 'Nice', body: LONG });
+    await sleepMs(15);
+    await review(alice, await delivered(alice, c), { rating: 3, body: LONG }); // too lukewarm
+    await review(alice, await delivered(alice, d), { rating: 5, body: 'Great' }); // no substance
+    await review(alice, await delivered(alice, e), { rating: 5 }); // no words at all
+    const hidden = (await review(carol, await delivered(carol, f), { rating: 5, body: LONG })).body.data;
+    await admin.patch(`/admin/reviews/${hidden.id}`, { isVisible: false });
+    await sleepMs(15);
+    // A second, newer review of product A: only the newest per product is shown.
+    await review(alice, await delivered(alice, a), { rating: 5, body: 'Second order, even better than the first.' });
+    void ra1;
+
+    const list = await featured();
+    expect(list.map((r) => r.productName)).toEqual(['Saree A', 'Saree B']);
+    expect(list[0]).toMatchObject({ rating: 5, body: 'Second order, even better than the first.', reviewer: 'Asha R.' });
+    expect(list[1]).toMatchObject({ rating: 4, title: 'Nice', reviewer: 'Bhavesh' });
+    expect(typeof list[0].productSlug).toBe('string');
+    expect(JSON.stringify(list)).not.toMatch(/example\.test|userId|orderId|isVisible|Rao/);
+  });
+
+  it('leaves out archived products, trims long reviews, and honours the limit', async () => {
+    const items = [];
+    for (let i = 0; i < 4; i++) items.push(await w.sellable({ onHand: 30, name: `Kurta ${i}` }));
+    for (const it of items) await review(alice, await delivered(alice, it), { rating: 5, body: `${LONG} ${'x'.repeat(400)}` });
+    expect((await featured('?limit=2')).length).toBe(2);
+    expect((await featured())[0].body.length).toBeLessThanOrEqual(280);
+    expect((await featured())[0].body.endsWith('…')).toBe(true);
+
+    await prisma.product.update({ where: { id: items[3].productId }, data: { status: 'ARCHIVED' } });
+    expect((await featured()).map((r) => r.productName)).not.toContain('Kurta 3');
+    expect((await request(app).get('/api/v1/reviews/featured?limit=50')).status).toBe(400);
+    expect((await request(app).get('/api/v1/reviews/featured?limit=0')).status).toBe(400);
+  });
+});
+
+const sleepMs = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 describe('my reviews', () => {
   it('lists what is waiting to be reviewed, then moves it across once reviewed', async () => {
     const d = await delivered(alice);

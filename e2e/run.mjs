@@ -12,7 +12,7 @@ import { artifacts, launchBrowser } from './lib/browser.mjs';
 import { startStack } from './lib/stack.mjs';
 
 // Order matters: later specs build on orders and accounts created by earlier ones.
-const ALL = ['auth', 'shopper', 'admin', 'catalogue', 'delivery', 'experience', 'responsive'];
+const ALL = ['auth', 'shopper', 'admin', 'catalogue', 'delivery', 'experience', 'home', 'responsive'];
 const wanted = process.argv.slice(2).filter((a) => !a.startsWith('-'));
 const specs = wanted.length ? ALL.filter((s) => wanted.includes(s)) : ALL;
 

@@ -111,7 +111,7 @@ erDiagram
 | **2 Auth + catalogue** ✅ | Profile sync, role management, categories, products, variants, search, filters; admin product/inventory CRUD; seed script; auth pages; shop/product pages; admin UI | Catalogue visible in `/shop` from DB; admin can create product |
 | **3 Shopping + payments** ✅ | Cart, wishlist, addresses, coupons, checkout, Razorpay order/verify/webhook, stock reservation, refunds | Payment completes against the Razorpay stand-in; duplicate webhook is a no-op. *Live sandbox walk-through still to do — see PAYMENTS.md* |
 | **4 Dashboards** ✅ | Customer (reviews, notifications, support, security), delivery partner (application → approval → code-verified delivery), admin (overview, reports + CSV, customers, partners, support, banners, newsletter, audit log) | Full order → delivery lifecycle in the browser suite (`e2e/`) |
-| **5 Premium UI** | R3F hero, GSAP, Lenis, ReactBits, a11y and reduced-motion | Lighthouse perf ≥ 85 on mobile, no CLS |
+| **5 Premium UI** ✅* | R3F hero (lazy, static fallbacks), GSAP, Lenis, ReactBits, landing sections from live data, policy pages, a11y and reduced-motion | Lighthouse perf ≥ 85 on mobile, no CLS. *CLS is 0 and a11y/SEO/best-practices are 100; perf measured ~80 on a fast machine, ~60–68 on a throttled one. See MOTION.md* |
 | **6 Hardening** | Playwright E2E, security tests, deployment docs, CI/CD | CI green, docs complete |
 
 ## 5. Accounts you must create (cannot be automated)

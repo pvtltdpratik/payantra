@@ -56,6 +56,39 @@ export async function productReviews(slug: string, q: { page: number; pageSize: 
   };
 }
 
+/**
+ * Real words from real buyers for the home page: visible, 4–5 star reviews with some substance, newest first,
+ * at most one per product so a single popular item doesn't fill the row. Nothing is invented: with no such
+ * reviews the list is empty and the home page leaves the section out.
+ */
+export async function featuredReviews(limit: number) {
+  const rows = await prisma.review.findMany({
+    where: { isVisible: true, rating: { gte: 4 }, body: { not: null }, product: { status: 'ACTIVE', category: { isActive: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: 60,
+    select: { id: true, productId: true, rating: true, title: true, body: true, createdAt: true, user: { select: { fullName: true } }, product: { select: { name: true, slug: true } } },
+  });
+  const seen = new Set<string>();
+  const out = [];
+  for (const r of rows) {
+    const body = (r.body ?? '').trim();
+    if (body.length < 20 || seen.has(r.productId)) continue;
+    seen.add(r.productId);
+    out.push({
+      id: r.id,
+      rating: r.rating,
+      title: r.title,
+      body: body.length > 280 ? `${body.slice(0, 277).trimEnd()}…` : body,
+      createdAt: r.createdAt,
+      reviewer: displayName(r.user.fullName),
+      productName: r.product.name,
+      productSlug: r.product.slug,
+    });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 /** What this customer has reviewed, and what they bought and received but have not reviewed yet. */
 export async function myReviews(userId: string) {
   const [reviews, delivered] = await Promise.all([

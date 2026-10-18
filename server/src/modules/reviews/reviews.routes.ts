@@ -23,6 +23,13 @@ const updateBody = z
 
 export const reviewsRouter = Router();
 
+// Public: the best recent reviews across the shop, for the home page. (Registered before "/:id" routes.)
+reviewsRouter.get(
+  '/featured',
+  validate(z.object({ limit: z.coerce.number().int().min(1).max(12).default(6) }), 'query'),
+  handle(async (_req, res) => ok(res, await reviews.featuredReviews(res.locals.query.limit))),
+);
+
 // Public: anyone may read a product's visible reviews.
 reviewsRouter.get(
   '/product/:slug',

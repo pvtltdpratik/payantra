@@ -6,7 +6,14 @@ import { AppError } from '../../lib/errors.js';
 import { pageMeta, toSkipTake } from '../../lib/pagination.js';
 import { istDateTimeString } from '../../lib/time.js';
 
-export const PLACEMENTS = ['HOME_HERO', 'HOME_STRIP', 'CATEGORY'] as const;
+/**
+ * Where a banner appears on the storefront:
+ *  ANNOUNCEMENT  the thin bar above the header (offers, delivery news)
+ *  HOME_HERO     a spotlight link under the hero's buttons
+ *  HOME_STRIP    the "limited-time offers" cards on the home page
+ *  CATEGORY      reserved for category pages
+ */
+export const PLACEMENTS = ['ANNOUNCEMENT', 'HOME_HERO', 'HOME_STRIP', 'CATEGORY'] as const;
 export type Placement = (typeof PLACEMENTS)[number];
 
 interface BannerInput {

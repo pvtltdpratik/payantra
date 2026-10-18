@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { ShoppingBag } from "lucide-react";
 import { authedApi } from "@/lib/client-api";
 import { onCartChanged } from "@/lib/cart-events";
-import { createClient } from "@/lib/supabase/client";
+import { getBrowserSession, watchAuth } from "@/lib/supabase/lazy";
 
 /** Shopping-bag link with a live item count. Signed-out visitors simply see the bag without a count. */
 export function CartBadge() {
@@ -15,8 +15,8 @@ export function CartBadge() {
     let cancelled = false;
     async function refresh() {
       try {
-        const { data } = await createClient().auth.getSession();
-        if (!data.session) return setCount(0);
+        const session = await getBrowserSession();
+        if (!session) return !cancelled && setCount(0);
         const res = await authedApi<{ count: number }>("/cart/summary");
         if (!cancelled) setCount(res.data.count);
       } catch {
@@ -25,9 +25,11 @@ export function CartBadge() {
     }
     void refresh();
     const off = onCartChanged(() => void refresh());
+    const stopAuth = watchAuth(() => void refresh());
     return () => {
       cancelled = true;
       off();
+      stopAuth();
     };
   }, []);
 

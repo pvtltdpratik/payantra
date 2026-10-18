@@ -194,6 +194,36 @@ describe('banners', () => {
   });
 });
 
+describe('announcement bar and public settings', () => {
+  it('serves the announcement slot like any other banner placement', async () => {
+    const made = await admin.post('/admin/banners', { title: 'Free delivery this weekend', imageUrl: '/placeholder/5c1a2b', linkUrl: '/shop', placement: 'ANNOUNCEMENT' });
+    expect(made.status).toBe(201);
+    await admin.post('/admin/banners', { title: 'Strip offer', imageUrl: '/placeholder/5c1a2b', placement: 'HOME_STRIP' });
+    const bar = (await request(app).get('/api/v1/banners?placement=ANNOUNCEMENT')).body.data as any[];
+    expect(bar.map((b) => b.title)).toEqual(['Free delivery this weekend']);
+    expect((await request(app).get('/api/v1/banners?placement=HOME_STRIP')).body.data).toHaveLength(1);
+  });
+
+  it('tells shoppers only the store rules they are entitled to, and tracks admin changes', async () => {
+    const before = await request(app).get('/api/v1/settings/public'); // no sign-in needed
+    expect(before.status).toBe(200);
+    expect(Object.keys(before.body.data).sort()).toEqual(['payments', 'returns', 'shipping']);
+    expect(before.body.data).toEqual({
+      shipping: { flatRate: 9900, freeThreshold: 299900 },
+      returns: { returnWindowDays: 7, replacementEnabled: true },
+      payments: { codEnabled: false, codMaxOrder: 500000 },
+    });
+
+    await admin.put('/admin/settings/shipping', { flatRate: 14900, freeThreshold: 150000 });
+    await admin.put('/admin/settings/returns', { returnWindowDays: 14, replacementEnabled: false });
+    const after = (await request(app).get('/api/v1/settings/public')).body.data;
+    expect(after.shipping).toEqual({ flatRate: 14900, freeThreshold: 150000 });
+    expect(after.returns).toEqual({ returnWindowDays: 14, replacementEnabled: false });
+    // Operational settings never leave the admin area.
+    expect(JSON.stringify(after)).not.toMatch(/reservationMinutes|defaultPayout|requireVehicle|requireIdDocument/);
+  });
+});
+
 describe('newsletter', () => {
   const subscribe = (email: string) => request(app).post('/api/v1/newsletter/subscribe').send({ email });
 
