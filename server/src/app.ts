@@ -1,7 +1,8 @@
 import compression from 'compression';
 import cors from 'cors';
-import express from 'express';
-import helmet from 'helmet';
+import express, { type RequestHandler } from 'express';
+import * as helmetModule from 'helmet';
+import type { HelmetOptions } from 'helmet';
 import { corsOrigins, env } from './config/env.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 import { globalLimiter } from './middleware/rateLimit.js';
@@ -30,6 +31,17 @@ import {
 } from './modules/catalogue/catalogue.routes.js';
 import { healthRouter } from './modules/health/health.routes.js';
 import { usersRouter } from './modules/users/users.routes.js';
+
+/**
+ * helmet 8 declares its function as the *default export* of both its ESM and CJS type files. Whether `import helmet
+ * from 'helmet'` then types as the function or as the whole module namespace ("This expression is not callable ...
+ * typeof import(.../helmet/index) has no call signatures", TS2349) depends on how the compiler classifies this file as
+ * ESM or CJS, and a hosting platform's build can classify it differently from `tsc` here. Reading the callable off
+ * the namespace works under every classification: the ESM build exposes it as `.default`, and the CJS build is the
+ * function itself with `.default` pointing back at it.
+ */
+type HelmetFn = (options?: Readonly<HelmetOptions>) => RequestHandler;
+const helmet: HelmetFn = ((helmetModule as unknown as { default?: unknown }).default ?? helmetModule) as HelmetFn;
 
 export function createApp() {
   const app = express();
